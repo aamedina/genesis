@@ -22,19 +22,42 @@
            com.hazelcast.core.HazelcastInstance))
 
 (defn make-mancenter
-  [=]
+  []
   (make-webapp (env :mancenter-host)
                (env :mancenter-port)
                (env :mancenter-war)))
 
-(defrecord Cluster [mancenter nodes]
+(defrecord Cluster [nodes mancenter num-nodes f]
   p/Cluster
 
   c/Lifecycle
   (start [this]
-    this)
+    (if nodes
+      this
+      (try
+        (let [mancenter (make-mancenter)
+              nodes (into #{} (repeatedly num-nodes #(node/make-node f)))]
+          (assoc this
+            :nodes nodes
+            :mancenter mancenter))
+        (catch Throwable t
+          (assoc this
+            :error (ex-info (.getMessage t) {} t))))))
   (stop [this]
-    this))
+    (if nodes
+      (try
+        (c/stop mancenter)
+        (doseq [node nodes]
+          (c/stop node))
+        (assoc this
+          :nodes nil
+          :mancenter nil)
+        (catch Throwable t
+          (assoc this
+            :error (ex-info (.getMessage t) {} t))))
+      this)))
 
 (defn make-cluster
-  [num-nodes])
+  ([f] (make-cluster 1 f))
+  ([num-nodes f]
+   (Cluster. nil nil num-nodes f)))
