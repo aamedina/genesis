@@ -29,7 +29,7 @@
       this
       (try
         (let [config (ClientConfig.)
-              client (HazelcastClient/tnewHazelcastClient config)]
+              client (HazelcastClient/newHazelcastClient config)]
           (f client config)
           (assoc this
             :config config
