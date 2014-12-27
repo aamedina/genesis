@@ -48,4 +48,4 @@
 
 (defn make-client
   [f]
-  (HazelcastClient. nil nil f))
+  (Client. nil nil f))
