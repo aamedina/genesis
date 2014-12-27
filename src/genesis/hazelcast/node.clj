@@ -19,55 +19,31 @@
            com.hazelcast.core.HazelcastInstance
            java.util.Queue))
 
-(defonce ^:dynamic *hazelcast* nil)
-
-(defrecord HazelcastNode [instance delayed]
+(defrecord Node [node f]
   p/Node
   
   c/Lifecycle
   (start [this]
-    (if instance
+    (if node
       this
       (try
-        (binding [*hazelcast* (Hazelcast/newHazelcastInstance)]
-          @delayed
+        (let [node (Hazelcast/newHazelcastInstance)]
+          (f node)
           (assoc this
-            :instance *hazelcast*))
+            :node node))
         (catch Throwable t
           (assoc this
             :error (ex-info (.getMessage t) {} t))))))
   (stop [this]
-    (if instance
+    (if node
       (try
-        (.shutdown instance)
-        (assoc this :instance nil)
+        (.shutdown node)
+        (assoc this :node nil)
         (catch Throwable t
           (assoc this
             :error (ex-info (.getMessage t) {} t))))
       this)))
 
-(defmacro node
-  [& body]
-  `(HazelcastNode. nil (delay ~@body)))
-
-(defmacro defnode
-  [node-name & body]
-  `(def ~node-name (node ~@body)))
-
 (defn make-node
-  []
-  (node (let [m (doto (.getMap *hazelcast* "customers")
-                  (.put 1 "Joe")
-                  (.put 1 "Ali")
-                  (.put 1 "Avi"))
-              q (doto (.getQueue *hazelcast* "customers")
-                  (.offer "Tom")
-                  (.offer "Mary")
-                  (.offer "Jane"))]
-          
-          (println "Customer with key 1: " (.get m 1))
-          (println "Map Size: " (.size m))
-
-          (println "First customer: " (.poll q))
-          (println "Second customer: " (.peek q))
-          (println "Queue size: " (.size q)))))
+  [f]
+  (Node. nil f))

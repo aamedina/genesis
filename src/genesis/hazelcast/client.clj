@@ -12,4 +12,40 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.hazelcast.client)
+(ns genesis.hazelcast.client
+  (:require [genesis.protocols :as p]
+            [com.stuartsierra.component :as c])
+  (:import com.hazelcast.core.HazelcastInstance
+           com.hazelcast.core.IMap
+           com.hazelcast.client.config.ClientConfig
+           com.hazelcast.client.HazelcastClient))
+
+(defrecord Client [client config f]
+  p/Client
+
+  c/Lifecycle
+  (start [this]
+    (if client
+      this
+      (try
+        (let [config (ClientConfig.)
+              client (HazelcastClient/tnewHazelcastClient config)]
+          (f client config)
+          (assoc this
+            :config config
+            :client client))
+        (catch Throwable t
+          (assoc this
+            :error (ex-info (.getMessage t) {} t))))))
+  (stop [this]
+    (if client
+      (try
+        (assoc this :client nil :config nil)
+        (catch Throwable t
+          (assoc this
+            :error (ex-info (.getMessage t) {} t))))
+      this)))
+
+(defn make-client
+  [f]
+  (HazelcastClient. nil nil f))
