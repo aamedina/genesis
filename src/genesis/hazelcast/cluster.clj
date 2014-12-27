@@ -36,7 +36,8 @@
       this
       (try
         (let [mancenter (make-mancenter)
-              nodes (into #{} (repeatedly num-nodes #(node/make-node f)))]
+              nodes (into #{} (map c/start)
+                          (repeatedly num-nodes #(node/make-node f)))]
           (assoc this
             :nodes nodes
             :mancenter mancenter))
