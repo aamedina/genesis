@@ -14,16 +14,27 @@
 
 (ns genesis.hazelcast.cluster
   (:require [genesis.protocols :as p]
+            [genesis.jetty :refer [make-webapp]]
             [genesis.hazelcast.node :as node]
-            [genesis.hazelcast.mancenter :refer [mancenter make-mancenter]]
-            [com.stuartsierra.component :as c]))
+            [com.stuartsierra.component :as c]
+            [environ.core :refer [env]])
+  (:import com.hazelcast.core.Hazelcast
+           com.hazelcast.core.HazelcastInstance))
 
-(defrecord HazelcastCluster [mancenter nodes]
+(defn make-mancenter
+  [=]
+  (make-webapp (env :mancenter-host)
+               (env :mancenter-port)
+               (env :mancenter-war)))
+
+(defrecord Cluster [mancenter nodes]
   p/Cluster
 
   c/Lifecycle
-  (start [this])
-  (stop [this]))
+  (start [this]
+    this)
+  (stop [this]
+    this))
 
 (defn make-cluster
   [num-nodes])
