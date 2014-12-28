@@ -13,16 +13,19 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.store
-  (:require [genesis.hazelcast.node :as node]))
-
-(defprotocol Store)
-
-(defn store?
-  [x]
-  (satisfies? Store x))
+  (:require [genesis.hazelcast.node :as node]
+            [genesis.protocols :as p])
+  (:import [com.hazelcast.core MapStore]))
 
 (deftype ClusterAwareStore [node]
-  Store)
+  MapStore
+  (delete [_ k])
+  (deleteAll [_ ks])
+  (store [_ k v])
+  (storeAll [_ m])
+  (load [_ k])
+  (loadAll [_ ks])
+  (loadAllKeys [_]))
 
 (defn make-cluster-aware-store
   [node]

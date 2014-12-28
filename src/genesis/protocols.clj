@@ -61,3 +61,5 @@
   (load-balancer [this]))
 
 (defprotocol Deferred)
+
+(defprotocol Store)
