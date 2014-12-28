@@ -41,5 +41,8 @@
   p/LoadBalancer)
 
 (defn make-cluster-aware-load-balancer
-  [node]
-  (ClusterAwareLoadBalancer. node nil))
+  ([node]
+   (make-cluster-aware-load-balancer node (s/->RoundRobinScheduler {})))
+  ([node scheduler]
+   {:pre [(s/scheduler? scheduler)]}
+   (ClusterAwareLoadBalancer. node scheduler)))
