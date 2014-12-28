@@ -28,12 +28,42 @@
                           ^:volatile-mutable ^IPersistentMap watches
                           ^:unsynchronized-mutable ^IPersistentMap meta]
   clojure.lang.IAtom
-  (swap [_ f])
-  (swap [_ f x])
-  (swap [_ f x y])
-  (swap [_ f x y args])
-  (compareAndSet [_ oldval newval])
-  (reset [_ newval])
+  (swap [this f]
+    (let [oldval (.get state)
+          newval (f oldval)]
+      (if (.compareAndSet this oldval newval)
+        newval
+        (recur f))))
+  (swap [this f x]
+    (let [oldval (.get state)
+          newval (f oldval x)]
+      (if (.compareAndSet this oldval newval)
+        newval
+        (recur f x))))
+  (swap [this f x y]
+    (let [oldval (.get state)
+          newval (f oldval x y)]
+      (if (.compareAndSet this oldval newval)
+        newval
+        (recur f x y))))
+  (swap [this f x y args]
+    (let [oldval (.get state)
+          newval (apply f oldval x y args)]
+      (if (.compareAndSet this oldval newval)
+        newval
+        (recur f x y args))))
+  (compareAndSet [this oldval newval]
+    (.validate this newval)
+    (let [ret (.compareAndSet state oldval newval)]
+      (when ret
+        (.notifyWatches this oldval newval))
+      ret))
+  (reset [this newval]
+    (let [oldval (.get state)]
+      (.validate this newval)
+      (.set state newval)
+      (.notifyWatches this oldval newval)
+      newval))
 
   clojure.lang.IRef
   (deref [_] (.get state))
