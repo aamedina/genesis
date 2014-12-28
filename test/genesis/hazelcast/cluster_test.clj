@@ -13,4 +13,5 @@
                                               :num-nodes 2}))
         client (c/start (cl/make-client cl-test/getting-started))]
     (c/stop client)
-    (c/stop-system cluster)))
+    ;; (c/stop-system cluster)
+    cluster))

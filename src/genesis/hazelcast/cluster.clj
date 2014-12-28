@@ -23,9 +23,10 @@
 
 (defn make-mancenter
   []
-  (make-webapp (env :mancenter-host)
-               (env :mancenter-port)
-               (env :mancenter-war)))
+  (make-webapp {:host (env :mancenter-host)
+                :port (env :mancenter-port)
+                :context-path "/mancenter"
+                :war (env :mancenter-war)}))
 
 (defrecord Cluster [nodes mancenter num-nodes f]
   p/Cluster

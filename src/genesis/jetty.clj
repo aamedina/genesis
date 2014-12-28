@@ -20,15 +20,15 @@
            org.eclipse.jetty.webapp.WebAppContext
            java.net.InetSocketAddress))
 
-(defrecord JettyWebApp [server webapp addr war-file]
+(defrecord JettyWebApp [server webapp addr context-path war]
   c/Lifecycle
   (start [this]
     (if server
       this
       (try
         (let [webapp (doto (WebAppContext.)
-                       (.setContextPath "/")
-                       (.setWar war-file))]
+                       (.setContextPath context-path)
+                       (.setWar war))]
           (assoc this
             :webapp webapp
             :server (doto (Server. addr)
@@ -50,5 +50,6 @@
       this)))
 
 (defn make-webapp
-  [host port war-file]
-  (JettyWebApp. nil nil (InetSocketAddress. host port) war-file))
+  [{:keys [host port context-path war]
+    :or {context-path "/"}}]
+  (JettyWebApp. nil nil (InetSocketAddress. host port) context-path war))
