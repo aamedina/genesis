@@ -20,8 +20,7 @@
                  [org.eclipse.jetty/jetty-jsp "9.2.6.v20141205"
                   :exclusions [org.glassfish/javax.el]]
                  [environ "1.0.0"]]
-  :plugins [[lein-environ "1.0.0"]]
-  :main ^:skip-aot genesis.main
+  :plugins [[lein-environ "1.0.0"]]  
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.8"]
                                   [criterium "0.4.3"]]
                    :global-vars {*warn-on-reflection* false
@@ -30,6 +29,7 @@
                          :mancenter-host "127.0.0.1"
                          :mancenter-port 8080
                          :mancenter-war "resources/mancenter-3.4.war"}}
+             :test {:main ^:skip-aot genesis.main}
              :uberjar {:aot :all}}
   :global-vars {*warn-on-reflection* false
                 *assert* false}
