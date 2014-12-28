@@ -13,8 +13,33 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.main
-  (:gen-class))
+  (:gen-class)
+  (:require [genesis.protocols :as p]
+            [genesis.hazelcast.cluster :as clst]
+            [genesis.hazelcast.node :as n]
+            [genesis.hazelcast.client :as cl]
+            [genesis.hazelcast.node-test :as n-test]
+            [genesis.hazelcast.client-test :as cl-test]
+            [com.stuartsierra.component :as c]
+            [clojure.tools.namespace.repl :as repl]))
+
+(defonce system
+  (clst/system {:f n-test/getting-started
+                :num-nodes 2}))
+
+(defn start
+  []
+  (alter-var-root #'system c/start-system))
+
+(defn stop
+  []
+  (alter-var-root #'system c/stop-system))
+
+(defn reset
+  []
+  (stop)
+  (repl/refresh-all :after 'genesis.main/-main))
 
 (defn -main
   [& args]
-  (println "Hello, world!"))
+  (start))

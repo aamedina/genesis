@@ -15,9 +15,6 @@
 (ns genesis.protocols
   (:require [com.stuartsierra.component :as c]))
 
-(defprotocol Initializable
-  (init [this]))
-
 (defprotocol Reloadable
   (reload [this]))
 
@@ -41,8 +38,6 @@
   com.stuartsierra.component.Lifecycle
   (reload [this]
     (c/stop this)
-    (when (satisfies? Initializable this)
-      (init this))
     (c/start this))
 
   com.hazelcast.spi.ManagedService
