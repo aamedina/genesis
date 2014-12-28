@@ -19,6 +19,13 @@
   [x]
   (satisfies? p/LoadBalancer x))
 
+(deftype BasicLoadBalancer []
+  p/LoadBalancer)
+
+(defn make-basic-load-balancer
+  []
+  (BasicLoadBalancer.))
+
 (deftype ClusterAwareLoadBalancer [node]
   p/ClusterAware
   
