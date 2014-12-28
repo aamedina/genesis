@@ -16,6 +16,10 @@
   (:import [com.hazelcast.core IAtomicReference HazelcastInstance]
            [clojure.lang IFn IPersistentMap]))
 
+(definterface IValidate
+  (^void validate [val])
+  (^void validate [^clojure.lang.IFn f val]))
+
 (deftype DistributedAtom [^IAtomicReference state
                           ^:volatile-mutable ^IFn validator
                           ^:volatile-mutable ^IPersistentMap watches
@@ -43,7 +47,19 @@
       (set! meta (apply f meta args))))
   (resetMeta [_ m]
     (locking meta
-      (set! meta m))))
+      (set! meta m)))
+
+  IValidate
+  (validate [this val]
+    (.validate this validator val))
+  (validate [_ f val]
+    (try
+      (when (or (nil? f) (false? (boolean (f val))))
+        (throw (IllegalStateException. "Invalid reference state")))
+      (catch RuntimeException e
+        (throw e))
+      (catch Exception e
+        (throw (IllegalStateException. "Invalid reference state" e))))))
 
 (defn make-distributed-atom
   [node x & {:keys [meta]}]
