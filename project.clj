@@ -12,12 +12,13 @@
                  [com.datomic/datomic-pro "0.9.5078" :exclusions [joda-time]]
                  [com.cognitect/transit-clj "0.8.259"]
                  [com.stuartsierra/component "0.2.2"]
+                 [io.netty/netty-all "4.0.24.Final"]
                  [com.hazelcast/hazelcast-all "3.4"]
+                 [org.glassfish/javax.el "3.0.0"]
                  [org.eclipse.jetty/jetty-server "9.2.6.v20141205"]
                  [org.eclipse.jetty/jetty-webapp "9.2.6.v20141205"]
                  [org.eclipse.jetty/jetty-jsp "9.2.6.v20141205"
                   :exclusions [org.glassfish/javax.el]]
-                 [io.netty/netty-all "4.0.24.Final"]
                  [environ "1.0.0"]]
   :plugins [[lein-environ "1.0.0"]]
   :main ^:skip-aot genesis.main
