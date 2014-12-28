@@ -13,3 +13,12 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.cache)
+
+(defprotocol Cache)
+
+(defn cache?
+  [x]
+  (satisfies? Cache x))
+
+(extend-protocol Cache
+  nil)

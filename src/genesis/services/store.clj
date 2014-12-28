@@ -13,3 +13,12 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.store)
+
+(defprotocol Store)
+
+(defn store?
+  [x]
+  (satisfies? Store x))
+
+(extend-protocol Store
+  nil)

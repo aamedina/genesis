@@ -16,3 +16,22 @@
   (:require [genesis.services.store :as store]
             [genesis.services.cache :as cache]
             [genesis.services.load-balancer :as load]))
+
+(defprotocol Service
+  (store [this])
+  (cache [this])
+  (load-balancer [this]))
+
+(defn service?
+  [x]
+  (satisfies? Service x))
+
+(defn service
+  ([] (service nil))
+  ([store] (service store nil))
+  ([store cache] (service store cache nil))
+  ([store cache load-balancer]
+   (reify Service
+     (store [this] store)
+     (cache [this] cache)
+     (load-balancer [this] load-balancer))))

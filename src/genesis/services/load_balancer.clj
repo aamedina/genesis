@@ -13,3 +13,12 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.load-balancer)
+
+(defprotocol LoadBalancer)
+
+(defn load-balancer?
+  [x]
+  (satisfies? LoadBalancer x))
+
+(extend-protocol LoadBalancer
+  nil)
