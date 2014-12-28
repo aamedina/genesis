@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.7.0-alpha4"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/core.match "0.3.0-alpha4"]
+                 [org.clojure/core.cache "0.6.5-SNAPSHOT"]
                  [org.clojure/math.combinatorics "0.0.8"]
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/test.check "0.6.2"]

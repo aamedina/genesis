@@ -12,13 +12,19 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.services.cache)
-
-(defprotocol Cache)
+(ns genesis.services.cache
+  (:require [clojure.core.cache :as cache]))
 
 (defn cache?
   [x]
-  (satisfies? Cache x))
+  (satisfies? cache/CacheProtocol x))
 
-(extend-protocol Cache
-  nil)
+(extend-protocol cache/CacheProtocol
+  nil
+  (lookup [cache e])
+  (lookup [cache e not-found])
+  (has? [cache e])
+  (hit [cache e])
+  (miss [cache e ret])
+  (evict [cache e])
+  (seed [cache base]))
