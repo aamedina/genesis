@@ -31,3 +31,9 @@
     (store [this] store)
     (cache [this] cache)
     (load-balancer [this] load-balancer)))
+
+(defmacro defservice
+  [service-name & impls]
+  `(defn ~service-name
+     [node#]
+     (service node# ~@impls)))
