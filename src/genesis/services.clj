@@ -27,18 +27,30 @@
            :or {store (store/make-cluster-aware-store node)
                 cache (cache/make-cluster-aware-cache node)
                 load-balancer (load/make-cluster-aware-load-balancer node)}}]
-  (reify p/Service
+  (reify
+    p/Service
     (store [this] store)
     (cache [this] cache)
     (load-balancer [this] load-balancer)
     
-    com.hazelcast.spi.ManagedService
-    (init [_ node properties])
-    (shutdown [_ terminate?])
-    (reset [_])))
+    p/ManagedService
+    (node [_] node)
+    (properties [_] nil)
+    (terminate-on-shutdown? [_] true)
+
+    com.hazelcast.spi.ManagedService))
 
 (defmacro defservice
   [service-name & impls]
   `(defn ~service-name
      [node#]
-     (service node# ~@impls)))
+     (let [s# (service node# ~@impls)
+           cls# (.getName (class s#))
+           config# (com.hazelcast.config.Config.)
+           services-config# (doto (.getServicesConfig config#)
+                              (.setEnableDefaults true))
+           service-config# (doto (.getServiceConfig services-config#)
+                             (.setEnabled true)
+                             (.setName ~service-name)
+                             (.setClassName class-name#))]
+       s#)))
