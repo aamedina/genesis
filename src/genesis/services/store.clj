@@ -14,7 +14,8 @@
 
 (ns genesis.services.store
   (:require [genesis.hazelcast.node :as node]
-            [genesis.protocols :as p])
+            [genesis.protocols :as p]
+            [genesis.database :as db])
   (:import [com.hazelcast.core MapStore]))
 
 (deftype ClusterAwareStore [node]

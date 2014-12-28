@@ -21,13 +21,34 @@
 (defprotocol Reloadable
   (reload [this]))
 
+(defprotocol ManagedService
+  (node [this])
+  (properties [this])
+  (terminate-on-shutdown? [this]))
+
+(extend-protocol c/Lifecycle
+  com.hazelcast.spi.ManagedService
+  (start [this]
+    {:pre [(satisfies? ManagedService this)]}
+    (.init this (node this) (properties this))
+    this)
+  (stop [this]
+    {:pre [(satisfies? ManagedService this)]}
+    (.shutdown this (terminate-on-shutdown? this))
+    this))
+
 (extend-protocol Reloadable
   com.stuartsierra.component.Lifecycle
   (reload [this]
     (c/stop this)
     (when (satisfies? Initializable this)
       (init this))
-    (c/start this)))
+    (c/start this))
+
+  com.hazelcast.spi.ManagedService
+  (reload [this]
+    (.reset this)
+    this))
 
 (defprotocol Configurable
   (config [this])

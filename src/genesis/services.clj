@@ -30,7 +30,12 @@
   (reify p/Service
     (store [this] store)
     (cache [this] cache)
-    (load-balancer [this] load-balancer)))
+    (load-balancer [this] load-balancer)
+    
+    com.hazelcast.spi.ManagedService
+    (init [_ node properties])
+    (shutdown [_ terminate?])
+    (reset [_])))
 
 (defmacro defservice
   [service-name & impls]
