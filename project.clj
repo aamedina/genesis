@@ -15,6 +15,7 @@
                  [com.stuartsierra/component "0.2.2"]
                  [io.netty/netty-all "4.0.24.Final"]
                  [com.hazelcast/hazelcast-all "3.4"]
+                 [javax.cache/cache-api "1.0.0"]
                  [org.glassfish/javax.el "3.0.0"]
                  [org.eclipse.jetty/jetty-server "9.2.6.v20141205"]
                  [org.eclipse.jetty/jetty-webapp "9.2.6.v20141205"]
