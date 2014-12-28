@@ -23,10 +23,11 @@
   (satisfies? p/Service x))
 
 (defn service
-  [node & {store 0 cache 1 load-balancer 2
-           :or {store (store/make-cluster-aware-store node)
-                cache (cache/make-cluster-aware-cache node)
-                load-balancer (load/make-cluster-aware-load-balancer node)}}]
+  [node properties terminate-on-shutdown?
+   & {store 0 cache 1 load-balancer 2
+      :or {store (store/make-cluster-aware-store node)
+           cache (cache/make-cluster-aware-cache node)
+           load-balancer (load/make-cluster-aware-load-balancer node)}}]
   (reify
     p/Service
     (store [this] store)
@@ -35,16 +36,18 @@
     
     p/ManagedService
     (node [_] node)
-    (properties [_] nil)
-    (terminate-on-shutdown? [_] true)
+    (properties [_] properties)
+    (terminate-on-shutdown? [_] terminate-on-shutdown?)
 
     com.hazelcast.spi.ManagedService))
 
 (defmacro defservice
   [service-name & impls]
   `(defn ~service-name
-     [node#]
-     (let [s# (service node# ~@impls)
+     [node# properties# terminate-on-shutdown?#]
+     (let [properties# (doto (java.util.Properties.)
+                         (.putAll properties#))
+           s# (service node# properties# terminate-on-shutdown?# ~@impls)
            cls# (.getName (class s#))
            config# (com.hazelcast.config.Config.)
            services-config# (doto (.getServicesConfig config#)
@@ -53,4 +56,6 @@
                              (.setEnabled true)
                              (.setName ~service-name)
                              (.setClassName class-name#))]
+       (doseq [[k v] properties#]
+         (.setProperty service-config# k v))
        s#)))
