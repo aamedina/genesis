@@ -48,8 +48,9 @@
 
 (defprotocol ClusterAware)
 
-(defprotocol LoadBalancer
-  )
+(defprotocol Scheduler)
+
+(defprotocol LoadBalancer)
 
 (defprotocol Service
   (store [this])

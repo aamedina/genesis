@@ -15,22 +15,39 @@
 (ns genesis.services.load-balancer
   (:require [genesis.protocols :as p]))
 
+(deftype RoundRobinScheduler []
+  p/Scheduler)
+
+(deftype FairQueuingScheduler []
+  p/Scheduler)
+
+(deftype ProportionallyFairScheduler []
+  p/Scheduler)
+
+(deftype MaximumThroughputScheduler []
+  p/Scheduler)
+
+(defn scheduler?
+  [x]
+  (satisfies? p/LoadBalancer x))
+
 (defn load-balancer?
   [x]
   (satisfies? p/LoadBalancer x))
 
-(deftype BasicLoadBalancer []
+(deftype BasicLoadBalancer [scheduler]
   p/LoadBalancer)
 
 (defn make-basic-load-balancer
-  []
-  (BasicLoadBalancer.))
+  [scheduler]
+  {:pre [(scheduler? scheduler)]}
+  (BasicLoadBalancer. scheduler))
 
-(deftype ClusterAwareLoadBalancer [node]
+(deftype ClusterAwareLoadBalancer [node scheduler]
   p/ClusterAware
   
   p/LoadBalancer)
 
 (defn make-cluster-aware-load-balancer
   [node]
-  (ClusterAwareLoadBalancer. node))
+  (ClusterAwareLoadBalancer. node (RoundRobinScheduler.)))
