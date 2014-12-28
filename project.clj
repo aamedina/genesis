@@ -22,6 +22,12 @@
                   :exclusions [org.glassfish/javax.el]]
                  [environ "1.0.0"]]
   :plugins [[lein-environ "1.0.0"]]  
+  :global-vars {*assert* false}
+  :repositories {"sonatype" "https://oss.sonatype.org/content/groups/public/"
+                 "my.datomic.com" {:url "https://my.datomic.com/repo"
+                                   :creds :gpg}}
+  :jvm-opts ["-server"
+             "-Dhazelcast.config=resources/hazelcast.xml"]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.8"]
                                   [criterium "0.4.3"]]
                    :global-vars {*assert* true}
@@ -29,12 +35,14 @@
                          :mancenter-host "127.0.0.1"
                          :mancenter-port 8080
                          :mancenter-war "resources/mancenter-3.4.war"}}
-             :test {:main genesis.main
+             
+             :test {:dependencies [[org.clojure/tools.namespace "0.2.8"]
+                                   [criterium "0.4.3"]]
+                    :main genesis.main
                     :aot :all
-                    :global-vars {*warn-on-reflection* true}}}
-  :global-vars {*assert* false}
-  :repositories {"sonatype" "https://oss.sonatype.org/content/groups/public/"
-                 "my.datomic.com" {:url "https://my.datomic.com/repo"
-                                   :creds :gpg}}
-  :jvm-opts ["-server"
-             "-Dhazelcast.config=resources/hazelcast.xml"])
+                    :global-vars {*warn-on-reflection* true
+                                  *assert* true}
+                    :env {:database-uri "datomic:mem://genesis"
+                          :mancenter-host "127.0.0.1"
+                          :mancenter-port 8080
+                          :mancenter-war "resources/mancenter-3.4.war"}}})
