@@ -37,6 +37,7 @@
   (removeWatch [_ k])
 
   clojure.lang.IReference
+  (meta [_] meta)
   (alterMeta [this f args]
     (set! meta (apply f meta args))
     this)
