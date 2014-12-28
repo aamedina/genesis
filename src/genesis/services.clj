@@ -27,22 +27,11 @@
   (satisfies? Service x))
 
 (defn service
-  ([] (service nil))
-  ([store] (service store (cache/->ClusteredCache {})))
-  ([store cache] (service store cache nil))
-  ([store cache load-balancer]
-   (reify Service
-     (store [this] store)
-     (cache [this] cache)
-     (load-balancer [this] load-balancer))))
-
-(defmacro defservice
-  [service-name & [store cache load-balancer]]
-  `(defonce ~service-name (service ~store ~cache ~load-balancer)))
-
-(defn extend-service
-  [service & {store 0 cache 1 load-balancer 2
-              :or {store (genesis.services/store service)
-                   cache (genesis.services/cache service)
-                   load-balancer (genesis.services/load-balancer service)}}]
-  (service store cache load-balancer))
+  [node & {store 0 cache 1 load-balancer 2
+           :or {store (store/->ClusterAwareStore node)
+                cache (cache/->ClusteredCache {} node)
+                load-balancer (load/->ClusteredLoadBalancer node)}}]
+  (reify Service
+    (store [this] store)
+    (cache [this] cache)
+    (load-balancer [this] load-balancer)))

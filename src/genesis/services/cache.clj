@@ -19,7 +19,7 @@
   [x]
   (satisfies? cache/CacheProtocol x))
 
-(defcache ClusteredCache [cache]
+(defcache ClusteredCache [cache node]
   cache/CacheProtocol
   (lookup [_ item]
     (get cache item))
@@ -29,8 +29,8 @@
     (contains? cache item))
   (hit [this item] this)
   (miss [_ item result]
-    (ClusteredCache. (assoc cache item result)))
+    (ClusteredCache. (assoc cache item result) node))
   (evict [_ key]
-    (ClusteredCache. (dissoc cache key)))
+    (ClusteredCache. (dissoc cache key) node))
   (seed [_ base]
-    (ClusteredCache. base)))
+    (ClusteredCache. base node)))

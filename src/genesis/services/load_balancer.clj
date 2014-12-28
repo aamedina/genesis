@@ -20,5 +20,5 @@
   [x]
   (satisfies? LoadBalancer x))
 
-(extend-protocol LoadBalancer
-  nil)
+(deftype ClusteredLoadBalancer [node]
+  LoadBalancer)

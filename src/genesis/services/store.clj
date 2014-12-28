@@ -12,7 +12,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.services.store)
+(ns genesis.services.store
+  (:require [genesis.hazelcast.node :as node]))
 
 (defprotocol Store)
 
@@ -20,5 +21,5 @@
   [x]
   (satisfies? Store x))
 
-(extend-protocol Store
-  nil)
+(deftype ClusterAwareStore [node]
+  Store)
