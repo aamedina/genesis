@@ -13,8 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.protocols
-  (:require [com.stuartsierra.component :as c])
-  (:import com.stuartsierra.component.Lifecycle))
+  (:require [com.stuartsierra.component :as c]))
 
 (defprotocol Initializable
   (init [this]))
@@ -23,7 +22,7 @@
   (reload [this]))
 
 (extend-protocol Reloadable
-  Lifecycle
+  com.stuartsierra.component.Lifecycle
   (reload [this]
     (c/stop this)
     (when (satisfies? Initializable this)
@@ -48,7 +47,11 @@
 
 (defprotocol ClusterAware)
 
-(defprotocol Scheduler)
+(defprotocol Scheduler
+  (cancel-task [this k])
+  (cancel-all [this])
+  (flush-tasks [this])
+  (schedule [this k v delay-ms periodic?]))
 
 (defprotocol LoadBalancer)
 

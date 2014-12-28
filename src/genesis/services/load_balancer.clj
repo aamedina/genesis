@@ -13,23 +13,15 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.load-balancer
-  (:require [genesis.protocols :as p]))
-
-(deftype RoundRobinScheduler []
-  p/Scheduler)
-
-(deftype FairQueuingScheduler []
-  p/Scheduler)
-
-(deftype ProportionallyFairScheduler []
-  p/Scheduler)
-
-(deftype MaximumThroughputScheduler []
-  p/Scheduler)
-
-(defn scheduler?
-  [x]
-  (satisfies? p/Scheduler x))
+  (:require [genesis.protocols :as p]
+            [genesis.services.scheduler :as s])
+  (:import java.util.concurrent.atomic.AtomicReference
+           (java.util.concurrent CountDownLatch
+                                 Executor
+                                 ExecutorService
+                                 Executors
+                                 ThreadFactory
+                                 TimeUnit)))
 
 (defn load-balancer?
   [x]
@@ -40,7 +32,7 @@
 
 (defn make-basic-load-balancer
   [scheduler]
-  {:pre [(scheduler? scheduler)]}
+  {:pre [(s/scheduler? scheduler)]}
   (BasicLoadBalancer. scheduler))
 
 (deftype ClusterAwareLoadBalancer [node scheduler]
