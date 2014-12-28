@@ -20,6 +20,9 @@
   (^void validate [val])
   (^void validate [^clojure.lang.IFn f val]))
 
+(definterface IWatchable
+  (^void notifyWatches [oldval newval]))
+
 (deftype DistributedAtom [^IAtomicReference state
                           ^:volatile-mutable ^IFn validator
                           ^:volatile-mutable ^IPersistentMap watches
@@ -34,11 +37,24 @@
 
   clojure.lang.IRef
   (deref [_] (.get state))
-  (setValidator [_ f])
-  (getValidator [_])
-  (getWatches [_])
-  (addWatch [_ k f])
-  (removeWatch [_ k])
+  (setValidator [this f]
+    (.validate this f (.deref this))
+    (set! validator f))
+  (getValidator [_] validator)
+  (getWatches [_] watches)
+  (addWatch [this k f]
+    (locking watches
+      (set! watches (.assoc watches k f))
+      this))
+  (removeWatch [this k]
+    (locking watches
+      (set! watches (.without watches k))
+      this))
+
+  IWatchable
+  (notifyWatches [this oldval newval]
+    (doseq [[k f] watches]
+      (f k this oldval newval)))
 
   clojure.lang.IReference
   (meta [_] (locking meta meta))
@@ -62,7 +78,7 @@
         (throw (IllegalStateException. "Invalid reference state" e))))))
 
 (defn make-distributed-atom
-  [node x & {:keys [meta]}]
+  [node x & {:keys [meta validator]}]
   (let [ref (.getAtomicReference node (name (gensym "atom")))]
     (.set ref x)
-    (DistributedAtom. ref nil {} meta)))
+    (DistributedAtom. ref validator clojure.lang.PersistentHashMap/EMPTY meta)))
