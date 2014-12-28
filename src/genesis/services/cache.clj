@@ -13,13 +13,16 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services.cache
-  (:require [clojure.core.cache :as cache :refer [defcache]]))
+  (:require [genesis.protocols :as p]
+            [clojure.core.cache :as cache :refer [defcache]]))
 
 (defn cache?
   [x]
   (satisfies? cache/CacheProtocol x))
 
 (defcache ClusteredCache [cache node]
+  p/ClusterAware
+  
   cache/CacheProtocol
   (lookup [_ item]
     (get cache item))
@@ -34,3 +37,7 @@
     (ClusteredCache. (dissoc cache key) node))
   (seed [_ base]
     (ClusteredCache. base node)))
+
+(defn make-clustered-cache
+  [node]
+  (ClusteredCache. {} node))

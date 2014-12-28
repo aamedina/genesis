@@ -12,13 +12,18 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.services.load-balancer)
-
-(defprotocol LoadBalancer)
+(ns genesis.services.load-balancer
+  (:require [genesis.protocols :as p]))
 
 (defn load-balancer?
   [x]
-  (satisfies? LoadBalancer x))
+  (satisfies? p/LoadBalancer x))
 
 (deftype ClusteredLoadBalancer [node]
-  LoadBalancer)
+  p/ClusterAware
+  
+  p/LoadBalancer)
+
+(defn make-clustered-load-balancer
+  [node]
+  (ClusteredLoadBalancer. node))

@@ -45,3 +45,12 @@
 (defprotocol Cluster
   (add-node [this])
   (remove-node [this]))
+
+(defprotocol ClusterAware)
+
+(defprotocol LoadBalancer)
+
+(defprotocol Service
+  (store [this])
+  (cache [this])
+  (load-balancer [this]))

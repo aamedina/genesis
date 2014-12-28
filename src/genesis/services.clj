@@ -13,25 +13,21 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.services
-  (:require [genesis.services.store :as store]
+  (:require [genesis.protocols :as p]
+            [genesis.services.store :as store]
             [genesis.services.cache :as cache]
             [genesis.services.load-balancer :as load]))
 
-(defprotocol Service
-  (store [this])
-  (cache [this])
-  (load-balancer [this]))
-
 (defn service?
   [x]
-  (satisfies? Service x))
+  (satisfies? p/Service x))
 
 (defn service
   [node & {store 0 cache 1 load-balancer 2
-           :or {store (store/->ClusterAwareStore node)
-                cache (cache/->ClusteredCache {} node)
-                load-balancer (load/->ClusteredLoadBalancer node)}}]
-  (reify Service
+           :or {store (store/make-cluster-aware-store node)
+                cache (cache/make-clustered-cache node)
+                load-balancer (load/make-clustered-load-balancer node)}}]
+  (reify p/Service
     (store [this] store)
     (cache [this] cache)
     (load-balancer [this] load-balancer)))

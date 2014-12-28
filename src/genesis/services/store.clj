@@ -23,3 +23,7 @@
 
 (deftype ClusterAwareStore [node]
   Store)
+
+(defn make-cluster-aware-store
+  [node]
+  (ClusterAwareStore. node))
