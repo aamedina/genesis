@@ -29,7 +29,7 @@
 
 (defn scheduler?
   [x]
-  (satisfies? p/LoadBalancer x))
+  (satisfies? p/Scheduler x))
 
 (defn load-balancer?
   [x]
