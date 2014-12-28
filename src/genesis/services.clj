@@ -26,7 +26,7 @@
   [node & {store 0 cache 1 load-balancer 2
            :or {store (store/make-cluster-aware-store node)
                 cache (cache/make-clustered-cache node)
-                load-balancer (load/make-clustered-load-balancer node)}}]
+                load-balancer (load/make-cluster-aware-load-balancer node)}}]
   (reify p/Service
     (store [this] store)
     (cache [this] cache)

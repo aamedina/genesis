@@ -19,11 +19,11 @@
   [x]
   (satisfies? p/LoadBalancer x))
 
-(deftype ClusteredLoadBalancer [node]
+(deftype ClusterAwareLoadBalancer [node]
   p/ClusterAware
   
   p/LoadBalancer)
 
-(defn make-clustered-load-balancer
+(defn make-cluster-aware-load-balancer
   [node]
-  (ClusteredLoadBalancer. node))
+  (ClusterAwareLoadBalancer. node))
