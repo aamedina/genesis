@@ -59,3 +59,5 @@
   (store [this])
   (cache [this])
   (load-balancer [this]))
+
+(defprotocol Deferred)

@@ -14,14 +14,7 @@
 
 (ns genesis.services.load-balancer
   (:require [genesis.protocols :as p]
-            [genesis.services.scheduler :as s])
-  (:import java.util.concurrent.atomic.AtomicReference
-           (java.util.concurrent CountDownLatch
-                                 Executor
-                                 ExecutorService
-                                 Executors
-                                 ThreadFactory
-                                 TimeUnit)))
+            [genesis.services.scheduler :as s]))
 
 (defn load-balancer?
   [x]
