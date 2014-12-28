@@ -13,7 +13,7 @@
                  [com.datomic/datomic-pro "0.9.5078" :exclusions [joda-time]]
                  [com.cognitect/transit-clj "0.8.259"]
                  [com.stuartsierra/component "0.2.2"]
-                 [io.netty/netty-all "4.0.24.Final"]
+                 [io.netty/netty-all "5.0.0.Alpha2-SNAPSHOT"]
                  [com.hazelcast/hazelcast-all "3.4"]
                  [javax.cache/cache-api "1.0.0"]
                  [org.glassfish/javax.el "3.0.0"]

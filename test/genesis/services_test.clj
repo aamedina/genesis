@@ -18,19 +18,23 @@
     :cache false
     :store false)
 
-  (def echo-service
+  (def basic-tcp-service
     (extend-service basic-service
       :remote some-tcp-server))
   
   (defcommand echo
-    :service echo-service
+    :service basic-tcp-service
     identity)
 
-  (def some-udp-service
+  (defn setup-service
+    [{:keys [remote codec pipeline] :as service}]
+    )
+
+  (def basic-udp-service
     (extend-service basic-service
-      :remote some-tcp-server))
+      :remote basic-udp-server
+      :codec nil))
 
   (defcommand ping
-    :service some-udp-service
-    
+    :service basic-udp-service
     (constantly "pong")))
