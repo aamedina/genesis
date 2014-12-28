@@ -33,8 +33,7 @@
             :webapp webapp
             :server (doto (Server. addr)
                       (.setHandler webapp)
-                      (.start)
-                      (.join))))
+                      (.start))))
         
         (catch Throwable t
           (assoc this

@@ -9,7 +9,8 @@
 
 (defn getting-started
   []
-  (let [cluster (c/start (clst/make-cluster 2 n-test/getting-started))
+  (let [cluster (c/start-system (clst/system {:f n-test/getting-started
+                                              :num-nodes 2}))
         client (c/start (cl/make-client cl-test/getting-started))]
     (c/stop client)
-    (c/stop cluster)))
+    (c/stop-system cluster)))

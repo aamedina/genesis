@@ -35,19 +35,16 @@
     (if nodes
       this
       (try
-        (let [mancenter (make-mancenter)
-              nodes (into #{} (map c/start)
+        (let [nodes (into #{} (map c/start)
                           (repeatedly num-nodes #(node/make-node f)))]
           (assoc this
-            :nodes nodes
-            :mancenter mancenter))
+            :nodes nodes))
         (catch Throwable t
           (assoc this
             :error (ex-info (.getMessage t) {} t))))))
   (stop [this]
     (if nodes
       (try
-        (c/stop mancenter)
         (doseq [node nodes]
           (c/stop node))
         (assoc this
@@ -59,6 +56,12 @@
       this)))
 
 (defn make-cluster
-  ([f] (make-cluster 1 f))
-  ([num-nodes f]
-   (Cluster. nil nil num-nodes f)))
+  [num-nodes f]
+  (Cluster. nil nil num-nodes f))
+
+(defn system
+  [{:keys [f num-nodes] :or {num-nodes 0}}]
+  (c/system-map
+   :mancenter (make-mancenter)
+   :cluster (c/using (make-cluster num-nodes f)
+              [:mancenter])))
