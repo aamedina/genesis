@@ -13,27 +13,28 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.concurrent
+  (:require [genesis.core :refer :all])
   (:import [com.hazelcast.core Hazelcast ICountDownLatch HazelcastInstance]))
 
 (defn make-id-generator
-  [node]
-  (.getIdGenerator node "IdGenerator"))
+  []
+  (.getIdGenerator (find-node) "IdGenerator"))
 
 (defn genstr
-  ([node] (genstr node nil))
-  ([node prefix]
-   (str prefix (.newId (make-id-generator node)))))
+  ([] (genstr nil))
+  ([prefix]
+   (str prefix (.newId (make-id-generator (find-node))))))
 
 (defn make-countdown-latch
-  ([node] (make-countdown-latch node 1))
-  ([node ^long count]
-   (let [latch (.getCountDownLatch node (genstr node "CountDownLatch"))]
+  ([] (make-countdown-latch 1))
+  ([^long count]
+   (let [latch (.getCountDownLatch (find-node) (genstr "CountDownLatch"))]
      (when (pos? count)
        (.trySetCount latch count))
      latch)))
 
 (defn make-executor-service
-  [node]
-  (.getExecutorService node (genstr node "ExecutorService")))
+  []
+  (.getExecutorService (find-node) (genstr "ExecutorService")))
 
 

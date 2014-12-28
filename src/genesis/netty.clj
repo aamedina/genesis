@@ -13,7 +13,9 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.netty
-  (:require [com.stuartsierra.component :as c]
+  (:require [genesis.vars :as vars]
+            [genesis.hazelcast.concurrent.atom :as atom]
+            [com.stuartsierra.component :as c]
             [clojure.tools.logging :as log])
   (:import java.net.InetSocketAddress
            [io.netty.bootstrap Bootstrap ServerBootstrap]
@@ -90,3 +92,19 @@
 (defn netty-server
   [config]
   (map->NettyServer config))
+
+(defn find-remote
+  [remote]
+  (.get vars/remotes remote))
+
+(defmulti create-remote (fn [sym {:keys [provider]}] provider))
+
+(defmethod create-remote :default
+  [sym config]
+  (or (find-remote sym)
+      (let [remote-atom (atom/make-distributed-atom (netty-server config))]
+        (.put vars/remotes remote-atom))))
+
+(defn extend-remote
+  [sym & {:as config}]
+  (swap! (find-remote sym) into config))

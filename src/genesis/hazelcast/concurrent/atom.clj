@@ -13,9 +13,10 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.concurrent.atom
-  (:require [genesis.hazelcast.concurrent :as c])
-  (:import [com.hazelcast.core IAtomicReference HazelcastInstance]
-           [clojure.lang IFn IPersistentMap]))
+  (:require [genesis.core :refer :all]
+            [genesis.hazelcast.concurrent :as c])
+  (:import [com.hazelcast.core Hazelcast IAtomicReference HazelcastInstance]
+           [clojure.lang IFn IPersistentMap PersistentHashMap]))
 
 (definterface IValidate
   (^void validate [val])
@@ -109,7 +110,7 @@
         (throw (IllegalStateException. "Invalid reference state" e))))))
 
 (defn make-distributed-atom
-  [node x & {:keys [meta validator]}]
-  (let [ref (.getAtomicReference node (c/genstr node "atom"))]
-    (.set ref x)
-    (DistributedAtom. ref validator clojure.lang.PersistentHashMap/EMPTY meta)))
+  ([x & {:keys [validator meta]}]
+   (let [ref (.getAtomicReference (find-node) (c/genstr "atom"))]
+     (.set ref x)
+     (DistributedAtom. ref validator PersistentHashMap/EMPTY meta))))

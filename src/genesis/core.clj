@@ -12,4 +12,10 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.core)
+(ns genesis.core
+  (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
+
+(defn find-node
+  []
+  {:post [(boolean %)]}
+  (first (Hazelcast/getAllHazelcastInstances)))
