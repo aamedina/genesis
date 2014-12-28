@@ -42,4 +42,4 @@
 
 (defn make-cluster-aware-load-balancer
   [node]
-  (ClusterAwareLoadBalancer. node (RoundRobinScheduler.)))
+  (ClusterAwareLoadBalancer. node nil))

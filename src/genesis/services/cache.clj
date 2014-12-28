@@ -20,7 +20,7 @@
   [x]
   (satisfies? cache/CacheProtocol x))
 
-(defcache ClusteredCache [cache node]
+(defcache ClusterAwareCache [cache node]
   p/ClusterAware
   
   cache/CacheProtocol
@@ -32,12 +32,12 @@
     (contains? cache item))
   (hit [this item] this)
   (miss [_ item result]
-    (ClusteredCache. (assoc cache item result) node))
+    (ClusterAwareCache. (assoc cache item result) node))
   (evict [_ key]
-    (ClusteredCache. (dissoc cache key) node))
+    (ClusterAwareCache. (dissoc cache key) node))
   (seed [_ base]
-    (ClusteredCache. base node)))
+    (ClusterAwareCache. base node)))
 
-(defn make-clustered-cache
+(defn make-cluster-aware-cache
   [node]
-  (ClusteredCache. {} node))
+  (ClusterAwareCache. {} node))
