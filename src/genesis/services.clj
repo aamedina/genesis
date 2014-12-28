@@ -28,7 +28,7 @@
 
 (defn service
   ([] (service nil))
-  ([store] (service store nil))
+  ([store] (service store (cache/->ClusteredCache {})))
   ([store cache] (service store cache nil))
   ([store cache load-balancer]
    (reify Service
