@@ -13,9 +13,12 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.netty
-  (:require [com.stuartsierra.component :as c])
-  (:import [io.netty.bootstrap Bootstrap ServerBootstrap]
+  (:require [com.stuartsierra.component :as c]
+            [clojure.tools.logging :as log])
+  (:import java.net.InetSocketAddress
+           [io.netty.bootstrap Bootstrap ServerBootstrap]
            [io.netty.channel ChannelFuture ChannelInitializer ChannelOption]
+           [io.netty.channel ChannelFutureListener]
            [io.netty.channel ChannelPipeline EventLoopGroup]
            [io.netty.channel.nio NioEventLoopGroup]
            [io.netty.channel.socket SocketChannel]
@@ -46,19 +49,43 @@
                    (.group group)
                    (.channel NioDatagramChannel)))))
 
+(defn log-future-error
+  [channel-future]
+  (let [e (.cause channel-future)]
+    (log/error e (.getMessage e))))
+
+(defn bind
+  [server]
+  (let [addr (InetSocketAddress. (or (:host server) "127.0.0.1") (:port server))
+        bind-future (.bind (:bootstrap server) addr)]
+    (.addListener bind-future (reify ChannelFutureListener
+                                (operationComplete [_ channel-future]
+                                  (when-not (.isSuccess channel-future)
+                                    (log-future-error channel-future)))))
+    server))
+
 (defrecord NettyServer [host port protocol handler bootstrap options]
   c/Lifecycle
   (start [this]
-    (let [server (doto (case protocol
-                         :udp (setup-udp-server this)
-                         (setup-tcp-server this))
-                   (.handler handler))]
-      (doseq [[k v] (merge (default-options) options)]
-        (.option (:bootstrap server) k v))
-      server)
-    this)
+    (if bootstrap
+      this
+      (let [server (doto (case protocol
+                           :udp (setup-udp-server this)
+                           (setup-tcp-server this))
+                     (.handler handler))]
+        (doseq [[k v] (merge (default-options) options)]
+          (.option (:bootstrap server) k v))
+        (bind server))))
   (stop [this]
-    this))
+    (if bootstrap
+      (try
+        (when-not (.isShuttingDown (.group bootstrap))
+          (case protocol
+            :udp (.shutdownGracefully (.group bootstrap))
+            (do (.shutdownGracefully (.group bootstrap))
+                (.shutdownGracefully (.childGroup bootstrap)))))
+        (assoc this :bootstrap nil))
+      this)))
 
 (defn netty-server
   [config]
