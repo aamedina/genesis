@@ -21,8 +21,6 @@
            com.hazelcast.client.HazelcastClient))
 
 (defrecord Client [client config f]
-  p/Client
-
   c/Lifecycle
   (start [this]
     (if client
@@ -38,8 +36,9 @@
           (assoc this
             :error (ex-info (.getMessage t) {} t))))))
   (stop [this]
-    (if client
+    (if (.isRunning (.getLifecycleService client))
       (try
+        (.shutdown client)
         (assoc this :client nil :config nil)
         (catch Throwable t
           (assoc this
