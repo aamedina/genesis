@@ -13,9 +13,13 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.concurrent.atom
-  (:import com.hazelcast.core.IAtomicReference))
+  (:import [com.hazelcast.core IAtomicReference HazelcastInstance]
+           [clojure.lang IFn IPersistentMap]))
 
-(deftype DistributedAtom [^com.hazelcast.core.IAtomicReference state]
+(deftype DistributedAtom [^IAtomicReference state
+                          ^:volatile-mutable ^IFn validator
+                          ^:volatile-mutable ^IPersistentMap watches
+                          ^:unsynchronized-mutable ^IPersistentMap meta]
   clojure.lang.IAtom
   (swap [_ f])
   (swap [_ f x])
@@ -25,14 +29,23 @@
   (reset [_ newval])
 
   clojure.lang.IRef
+  (deref [_] (.get state))
   (setValidator [_ f])
   (getValidator [_])
   (getWatches [_])
   (addWatch [_ k f])
-  (removeWatch [_ k]))
+  (removeWatch [_ k])
+
+  clojure.lang.IReference
+  (alterMeta [this f args]
+    (set! meta (apply f meta args))
+    this)
+  (resetMeta [this m]
+    (set! meta m)
+    this))
 
 (defn make-distributed-atom
-  [node x & options]
+  [node x & {:keys [meta]}]
   (let [ref (.getAtomicReference node (name (gensym "atom")))]
     (.set ref x)
-    (DistributedAtom. ref)))
+    (DistributedAtom. ref nil {} meta)))
