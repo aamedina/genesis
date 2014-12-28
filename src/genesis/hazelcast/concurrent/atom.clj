@@ -37,13 +37,13 @@
   (removeWatch [_ k])
 
   clojure.lang.IReference
-  (meta [_] meta)
-  (alterMeta [this f args]
-    (set! meta (apply f meta args))
-    this)
-  (resetMeta [this m]
-    (set! meta m)
-    this))
+  (meta [_] (locking meta meta))
+  (alterMeta [_ f args]
+    (locking meta
+      (set! meta (apply f meta args))))
+  (resetMeta [_ m]
+    (locking meta
+      (set! meta m))))
 
 (defn make-distributed-atom
   [node x & {:keys [meta]}]
