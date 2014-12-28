@@ -15,10 +15,23 @@
 (ns genesis.hazelcast.concurrent
   (:import [com.hazelcast.core Hazelcast ICountDownLatch HazelcastInstance]))
 
+(defn make-id-generator
+  [node]
+  (.getIdGenerator node "IdGenerator"))
+
+(defn genstr
+  ([node] (genstr node nil))
+  ([node prefix]
+   (str prefix (.newId (make-id-generator node)))))
+
 (defn make-countdown-latch
   ([node] (make-countdown-latch node 1))
   ([node ^long count]
-   (let [latch (.getCountDownLatch node (name (gensym "CountDownLatch")))]
+   (let [latch (.getCountDownLatch node (genstr node "CountDownLatch"))]
      (when (pos? count)
        (.trySetCount latch count))
      latch)))
+
+(defn make-executor-service
+  [node]
+  (.getExecutorService node (genstr node "ExecutorService")))
