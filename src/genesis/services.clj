@@ -35,3 +35,14 @@
      (store [this] store)
      (cache [this] cache)
      (load-balancer [this] load-balancer))))
+
+(defmacro defservice
+  [service-name & [store cache load-balancer]]
+  `(defonce ~service-name (service ~store ~cache ~load-balancer)))
+
+(defn extend-service
+  [service & {store 0 cache 1 load-balancer 2
+              :or {store (genesis.services/store service)
+                   cache (genesis.services/cache service)
+                   load-balancer (genesis.services/load-balancer service)}}]
+  (service store cache load-balancer))
