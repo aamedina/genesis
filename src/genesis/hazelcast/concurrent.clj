@@ -12,4 +12,13 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.hazelcast.concurrent)
+(ns genesis.hazelcast.concurrent
+  (:import [com.hazelcast.core Hazelcast ICountDownLatch HazelcastInstance]))
+
+(defn make-countdown-latch
+  ([node] (make-countdown-latch node 1))
+  ([node ^long count]
+   (let [latch (.getCountDownLatch node (name (gensym "CountDownLatch")))]
+     (when (pos? count)
+       (.trySetCount latch count))
+     latch)))
