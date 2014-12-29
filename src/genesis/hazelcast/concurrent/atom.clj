@@ -13,10 +13,13 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.concurrent.atom
-  (:require [genesis.core :refer :all]
-            [genesis.hazelcast.concurrent :as c])
-  (:import [com.hazelcast.core Hazelcast IAtomicReference HazelcastInstance]
-           [clojure.lang IFn IPersistentMap PersistentHashMap]))
+  (:require [genesis.core :refer :all])
+  (:import [clojure.lang IFn IPersistentMap PersistentHashMap]
+           [java.util.concurrent.atomic AtomicReference]           
+           [com.hazelcast.core DistributedObject]
+           [com.hazelcast.spi ManagedService RemoteService NodeEngine]
+           [com.hazelcast.concurrent.atomicreference AtomicReferenceService]
+           [com.hazelcast.partition.strategy StringPartitioningStrategy]))
 
 (definterface IValidate
   (^void validate [val])
@@ -25,10 +28,18 @@
 (definterface IWatchable
   (^void notifyWatches [oldval newval]))
 
-(deftype DistributedAtom [^IAtomicReference state
-                          ^:volatile-mutable ^IFn validator
-                          ^:volatile-mutable ^IPersistentMap watches
-                          ^:unsynchronized-mutable ^IPersistentMap meta]
+(defonce partitioning-strategy
+  StringPartitioningStrategy/INSTANCE)
+
+(deftype Atom [^AtomicReference state
+               ^:volatile-mutable ^IFn validator
+               ^:volatile-mutable ^IPersistentMap watches
+               ^:unsynchronized-mutable ^IPersistentMap meta
+               ^String name
+               ^NodeEngine node-engine
+               ^AtomicReferenceService service]
+  java.io.Serializable
+  
   clojure.lang.IAtom
   (swap [this f]
     (let [oldval (.get state)
@@ -102,15 +113,31 @@
     (.validate this validator val))
   (validate [_ f val]
     (try
-      (when (or (nil? f) (false? (boolean (f val))))
+      (when (and (not (nil? f)) (false? (boolean (f val))))
         (throw (IllegalStateException. "Invalid reference state")))
       (catch RuntimeException e
         (throw e))
       (catch Exception e
-        (throw (IllegalStateException. "Invalid reference state" e))))))
+        (throw (IllegalStateException. "Invalid reference state" e))))) 
+
+  DistributedObject
+  (destroy [this]
+    (let [proxy-service (.getProxyService node-engine)]
+      (.destroyDistributedObject (.getServiceName this) (.getName this))))
+  (getName [_] name)
+  (getPartitionKey [this]
+    (.getPartitionKey partitioning-strategy (.getName this)))
+  (getServiceName [_]
+    ))
 
 (defn make-distributed-atom
-  ([x & {:keys [validator meta]}]
-   (let [ref (.getAtomicReference (find-node) (c/genstr "atom"))]
-     (.set ref x)
-     (DistributedAtom. ref validator PersistentHashMap/EMPTY meta))))
+  ([x & {:keys [validator meta] :or {meta {}}}]
+   ;; (let [ref (.getAtomicReference (find-node) (c/genstr "atom"))]
+   ;;   (.set ref x)
+   ;;   (DistributedAtom. ref validator PersistentHashMap/EMPTY meta))
+   ))
+
+;; (defn make-atom
+;;   ([x & {:keys [validator meta] :or {meta {}}}]
+;;    (let [ref (AtomicReference. x)]
+;;      (Atom. ref validator PersistentHashMap/EMPTY meta))))

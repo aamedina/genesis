@@ -13,7 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.netty
-  (:require [genesis.vars :as vars]
+  (:require [genesis.core :refer :all]
             [genesis.hazelcast.concurrent.atom :as atom]
             [com.stuartsierra.component :as c]
             [clojure.tools.logging :as log])
@@ -95,16 +95,22 @@
 
 (defn find-remote
   [remote]
-  (.get vars/remotes remote))
+  (let [m (.getMap (find-node) "remotes")]
+    (.get m remote)))
 
 (defmulti create-remote (fn [sym {:keys [provider]}] provider))
 
 (defmethod create-remote :default
   [sym config]
-  (or (find-remote sym)
-      (let [remote-atom (atom/make-distributed-atom (netty-server config))]
-        (.put vars/remotes remote-atom))))
+  (or (find-remote sym)      
+      (let [m (.getMap (find-node) "remotes")
+            remote (netty-server config)]
+        (.put m sym remote)
+        remote)))
 
 (defn extend-remote
   [sym & {:as config}]
-  (swap! (find-remote sym) into config))
+  (let [m (.getMap (find-node) "remotes")
+        remote (.get m sym)]
+    (.put m (into remote config))
+    (.get m sym)))

@@ -29,10 +29,7 @@
             [clojure.tools.logging :as log]))
 
 (defonce system
-  (clst/system {:f (fn [node]
-                     (log/info (atom/make-distributed-atom :hello-there)
-                               node
-                               (find-node)))
+  (clst/system {:f (fn [node])
                 :num-nodes 2}))
 
 (defn start

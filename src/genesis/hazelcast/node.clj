@@ -14,7 +14,6 @@
 
 (ns genesis.hazelcast.node
   (:require [genesis.core :refer :all]
-            [genesis.vars :as vars]
             [genesis.protocols :as p]
             [com.stuartsierra.component :as c])
   (:import com.hazelcast.core.Hazelcast

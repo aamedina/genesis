@@ -23,7 +23,7 @@
 (defn genstr
   ([] (genstr nil))
   ([prefix]
-   (str prefix (.newId (make-id-generator (find-node))))))
+   (str prefix (.newId (make-id-generator)))))
 
 (defn make-countdown-latch
   ([] (make-countdown-latch 1))

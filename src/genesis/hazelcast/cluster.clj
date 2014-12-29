@@ -14,7 +14,6 @@
 
 (ns genesis.hazelcast.cluster
   (:require [genesis.core :refer :all]
-            [genesis.vars :as vars]
             [genesis.protocols :as p]
             [genesis.jetty :refer [make-webapp]]
             [genesis.hazelcast.node :as node]
