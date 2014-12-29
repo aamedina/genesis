@@ -29,7 +29,6 @@
       this
       (try
         (let [node (Hazelcast/newHazelcastInstance)]
-          (setup-vars node)
           (f node)
           (assoc this
             :node node))

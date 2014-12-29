@@ -15,8 +15,8 @@
 (ns genesis.main
   (:gen-class)
   (:require [genesis.core :refer :all]
-            [genesis.vars :as vars]
             [genesis.netty :as netty]
+            [genesis.hazelcast.concurrent :as cc]
             [genesis.hazelcast.concurrent.atom :as atom]
             [genesis.protocols :as p]
             [genesis.hazelcast.cluster :as clst]
@@ -24,12 +24,20 @@
             [genesis.hazelcast.client :as cl]
             [genesis.hazelcast.node-test :as n-test]
             [genesis.hazelcast.client-test :as cl-test]
+            [genesis.distributed.atom :refer [command]]
             [com.stuartsierra.component :as c]
             [clojure.tools.namespace.repl :as repl]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log])
+  (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
 (defonce system
-  (clst/system {:f (fn [node])
+  (clst/system {:f (fn [node]
+                     (let [cnt (.getDistributedObject node "CounterService"
+                                                      (cc/genstr "counter"))]
+                       )
+                     ;; (command com.hazelcast.spi.PartitionAwareOperation
+                     ;;          ([] :hello))
+                     )
                 :num-nodes 2}))
 
 (defn start
