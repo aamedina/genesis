@@ -20,7 +20,7 @@
            com.hazelcast.core.HazelcastInstance
            java.util.Queue))
 
-(defrecord Node [node f]
+(defrecord Node [node f config]
   p/Node
   
   c/Lifecycle
@@ -28,7 +28,7 @@
     (if node
       this
       (try
-        (let [node (Hazelcast/newHazelcastInstance)]
+        (let [node (Hazelcast/newHazelcastInstance config)]
           (f node)
           (assoc this
             :node node))
@@ -46,5 +46,5 @@
       this)))
 
 (defn make-node
-  [f]
-  (Node. nil f))
+  [f config]
+  (Node. nil f config))

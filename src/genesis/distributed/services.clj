@@ -13,24 +13,26 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.distributed.services
-  (:require [genesis.distributed.configuration :refer [configure]])
+  (:require [genesis.distributed.configuration :refer [configure]]
+            [clojure.string :as str])
   (:import [com.hazelcast.core HazelcastInstance DistributedObject]
            [com.hazelcast.config Config ServiceConfig ServicesConfig]
            [com.hazelcast.spi NodeEngine ManagedService RemoteService]))
 
 (defmethod configure ::service
-  [cls & properties]
-  (let [config (Config.)
-        service-config (ServiceConfig.)
+  [cls & {:keys [config properties]}]
+  (let [service-name (peek (str/split (.getName cls) #"\."))
+        service-config (doto (ServiceConfig.)
+                         (.setEnabled true)
+                         (.setName service-name)
+                         (.setClassName (.getName cls)))
         services-config (doto (.getServicesConfig config)
                           (.setEnableDefaults true)
-                          (.addServiceConfig service-config))
-        service-config (doto service-config
-                         (.setEnabled true)
-                         (.setName (.getName cls))
-                         (.setClassName (.getName cls)))]
+                          (.addServiceConfig service-config))]
+    (println service-name (.getName cls))
     (doseq [[k v] properties]
-      (.setProperty service-config k v))))
+      (.setProperty service-config k v))
+    service-config))
 
 (defmacro defservice
   [name & opts+specs]
@@ -57,5 +59,4 @@
                                  (str ~service-name) op# pid#))]
                @(.invoke builder#))))
          (derive ~service-name :genesis.distributed.services/service)
-         (configure ~service-name ~@(get m :properties))
          ~name)))

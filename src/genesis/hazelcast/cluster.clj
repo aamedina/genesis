@@ -17,10 +17,11 @@
             [genesis.protocols :as p]
             [genesis.jetty :refer [make-webapp]]
             [genesis.hazelcast.node :as node]
+            [genesis.distributed.configuration :refer [configure]]
             [com.stuartsierra.component :as c]
             [environ.core :refer [env]])
-  (:import com.hazelcast.core.Hazelcast
-           com.hazelcast.core.HazelcastInstance))
+  (:import [com.hazelcast.core Hazelcast HazelcastInstance]
+           [com.hazelcast.config XmlConfigBuilder]))
 
 (defn make-mancenter
   []
@@ -37,8 +38,12 @@
     (if nodes
       this
       (try
-        (let [nodes (into #{} (map c/start)
-                          (repeatedly num-nodes #(node/make-node f)))]
+        (let [config (.build (XmlConfigBuilder.))
+              classes (descendants :genesis.distributed.services/service)
+              _ (doseq [cls classes]
+                  (configure cls :config config))
+              nodes (into #{} (map c/start)
+                          (repeatedly num-nodes #(node/make-node f config)))]
           (assoc this
             :nodes nodes))
         (catch Throwable t
