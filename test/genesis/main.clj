@@ -14,17 +14,25 @@
 
 (ns genesis.main
   (:gen-class)
-  (:require [genesis.protocols :as p]
+  (:require [genesis.core :refer :all]
+            [genesis.vars :as vars]
+            [genesis.netty :as netty]
+            [genesis.hazelcast.concurrent.atom :as atom]
+            [genesis.protocols :as p]
             [genesis.hazelcast.cluster :as clst]
             [genesis.hazelcast.node :as n]
             [genesis.hazelcast.client :as cl]
             [genesis.hazelcast.node-test :as n-test]
             [genesis.hazelcast.client-test :as cl-test]
             [com.stuartsierra.component :as c]
-            [clojure.tools.namespace.repl :as repl]))
+            [clojure.tools.namespace.repl :as repl]
+            [clojure.tools.logging :as log]))
 
 (defonce system
-  (clst/system {:f n-test/getting-started
+  (clst/system {:f (fn [node]
+                     (log/info (atom/make-distributed-atom :hello-there)
+                               node
+                               (find-node)))
                 :num-nodes 2}))
 
 (defn start
