@@ -50,9 +50,7 @@
          (withMeta [meta#] (.withMeta fn# meta#))))))
 
 (defservice Counter
-  {:service [^:unsynchronized-mutable ^NodeEngine node-engine]
-   :proxy [id ^NodeEngine node-engine ^RemoteService service]
-   :operation (inc ([amount] (inc amount)))}
+  :service [^:unsynchronized-mutable ^NodeEngine node-engine]
   ManagedService
   (init [_ engine properties]
     (println "CounterService.init")
@@ -63,13 +61,18 @@
 
   RemoteService
   (createDistributedObject [this id]
-    (CounterProxy. id node-engine this))
+    (Counter. id node-engine this))
   (destroyDistributedObject [_ id])
 
+  :proxy [id ^NodeEngine node-engine ^RemoteService service]
   DistributedObject
-  (destroy [_]
+  (destroy [this]
     (let [proxy-service (.getProxyService node-engine)]
       (.destroyDistributedObject (.getServiceName this) (.getName this))))
   (getName [_] id)
   (getPartitionKey [_] (.getPartitionKey partitioning-strategy id))
-  (getServiceName [_] "CounterService"))
+  (getServiceName [_] "CounterService")
+  
+  :operation
+  ICounter
+  (inc [amount] (inc amount)))

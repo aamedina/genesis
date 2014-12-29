@@ -15,15 +15,17 @@
 (ns genesis.distributed.services
   (:require [genesis.distributed.configuration :refer [configure]])
   (:import [com.hazelcast.core HazelcastInstance DistributedObject]
-           [com.hazelcast.config Config]
+           [com.hazelcast.config Config ServiceConfig ServicesConfig]
            [com.hazelcast.spi NodeEngine ManagedService RemoteService]))
 
 (defmethod configure ::service
   [cls & properties]
   (let [config (Config.)
+        service-config (ServiceConfig.)
         services-config (doto (.getServicesConfig config)
-                          (.setEnableDefaults true))
-        service-config (doto (.getServiceConfig services-config)
+                          (.setEnableDefaults true)
+                          (.addServiceConfig service-config))
+        service-config (doto service-config
                          (.setEnabled true)
                          (.setName (.getName cls))
                          (.setClassName (.getName cls)))]
@@ -31,46 +33,29 @@
       (.setProperty service-config k v))))
 
 (defmacro defservice
-  [name {:keys [service proxy operation]} & opts+specs]
-  (let [[opts specs] (loop [opts {}
-                            [k v & more :as specs] opts+specs]
-                       (if (keyword? k)
-                         (recur (assoc opts k v) more)
-                         [opts (into {} (comp (partition-all 2)
-                                              (map (fn [[[sym] [& impls]]]
-                                                     [(resolve sym) impls])))
-                                     (partition-by symbol? specs))]))
-        _ (println specs)
-        managed-service-specs (get specs ManagedService)
-        remote-service-specs (get specs RemoteService)
-        proxy-specs (flatten (seq (select-keys specs [DistributedObject])))
-        specs (flatten (seq (dissoc specs ManagedService RemoteService)))
+  [name & opts+specs]
+  (let [m (into {} (comp (partition-all 2)
+                         (map (fn [[k v]] [(first k) v])))
+                (partition-by keyword? opts+specs))
+        [op-interface [op arglist & body]] (get m :operation)
         service-name (symbol (str name "Service"))
-        proxy-name (symbol (str name "Proxy"))
-        [op & sigs] operation
-        op-interface (gensym op)
         this (symbol "this")
-        engine (second proxy)]
-    `(do (definterface ~op-interface ~@(filter vector? sigs))
-         (deftype ~proxy-name ~proxy
-           ~@proxy-specs)
-         (deftype ~service-name ~service
-           ManagedService
-           ~@managed-service-specs
-           RemoteService
-           ~@remote-service-specs
+        engine (second (first (get m :proxy)))]
+    `(do (definterface ~op-interface (~op ~arglist))
+         (deftype ~name ~@(get m :proxy))
+         (deftype ~service-name ~@(get m :service)
            ~op-interface
-           (~op ~@(for [[arglist & body :as sig] sigs]
-                    (list (vec (cons this arglist))
-                          `(let [op# (genesis.distributed.atom/command ~@sig)
-                                 pid# (.. ~engine
-                                          (getPartitionService)
-                                          (getPartitionId (.getName ~this)))
-                                 builder# (.. ~engine
-                                              (getOperationService)
-                                              (createInvocationBuilder
-                                               (str ~service-name) op# pid#))]
-                             @(.invoke builder#))))))
+           (~op ~(vec (cons this arglist))
+             (let [op# (genesis.distributed.atom/command ~arglist
+                                                         ~@body)
+                   pid# (.. ~engine
+                            (getPartitionService)
+                            (getPartitionId (.getName ~this)))
+                   builder# (.. ~engine
+                                (getOperationService)
+                                (createInvocationBuilder
+                                 (str ~service-name) op# pid#))]
+               @(.invoke builder#))))
          (derive ~service-name :genesis.distributed.services/service)
-         (configure (class ~service-name) opts)
-         (class ~name))))
+         (configure ~service-name ~@(get m :properties))
+         ~name)))
