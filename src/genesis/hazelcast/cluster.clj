@@ -13,7 +13,9 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.cluster
-  (:require [genesis.protocols :as p]
+  (:require [genesis.core :refer :all]
+            [genesis.vars :as vars]
+            [genesis.protocols :as p]
             [genesis.jetty :refer [make-webapp]]
             [genesis.hazelcast.node :as node]
             [com.stuartsierra.component :as c]

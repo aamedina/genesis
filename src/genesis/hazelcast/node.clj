@@ -13,7 +13,9 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.hazelcast.node
-  (:require [genesis.protocols :as p]
+  (:require [genesis.core :refer :all]
+            [genesis.vars :as vars]
+            [genesis.protocols :as p]
             [com.stuartsierra.component :as c])
   (:import com.hazelcast.core.Hazelcast
            com.hazelcast.core.HazelcastInstance
@@ -28,6 +30,7 @@
       this
       (try
         (let [node (Hazelcast/newHazelcastInstance)]
+          (setup-vars node)
           (f node)
           (assoc this
             :node node))

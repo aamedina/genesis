@@ -13,9 +13,17 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.core
+  (:require [genesis.vars :as vars])
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
 (defn find-node
   []
   {:post [(boolean %)]}
   (first (Hazelcast/getAllHazelcastInstances)))
+
+(defn setup-vars
+  [node]
+  (alter-var-root #'vars/executor
+                  (fn [_] (.getExecutorService node "executor")))
+  (alter-var-root #'vars/remotes
+                  (fn [_] (.getMap node "remotes"))))
