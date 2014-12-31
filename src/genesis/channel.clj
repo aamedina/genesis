@@ -28,11 +28,14 @@
             [clojure.core.async.impl.dispatch :as dispatch]
             [clojure.core.async.impl.mutex :as mutex])
   (:import [clojure.lang IFn IPersistentMap PersistentHashMap]
-           [com.hazelcast.core HazelcastInstance IAtomicReference]
+           [com.hazelcast.core IAtomicReference IQueue IList ILock]
            [java.util LinkedList Queue Iterator]
            [java.util.concurrent.locks Lock]))
 
 (set! *warn-on-reflection* true)
+
+(System/setProperty "hazelcast.backpressure.enabled" "true")
+(System/setProperty "hazelcast.backpressure.syncwindow" "1024")
 
 (defmacro assert-unlock [lock test msg]
   `(when-not ~test
@@ -47,7 +50,12 @@
   (cleanup [_])
   (abort [_]))
 
-(deftype ManyToManyChannel [^LinkedList takes ^LinkedList puts ^Queue buf closed ^Lock mutex add!]
+(deftype ManyToManyChannel [^IList takes
+                            ^IList puts
+                            ^IQueue buf
+                            ^IAtomicReference closed
+                            ^ILock mutex
+                            ^IAtomicReference add!]
   MMC
   (cleanup
     [_]
@@ -297,9 +305,9 @@
       (impl/add! buf else))))
 
 (defn chan
-  ([buf] (chan buf nil))
-  ([buf xform] (chan buf xform nil))
-  ([buf xform exh]
+  ([channel-name buf] (chan channel-name buf nil))
+  ([channel-name buf xform] (chan channel-name buf xform nil))
+  ([channel-name buf xform exh]   
    (ManyToManyChannel.
     (LinkedList.) (LinkedList.) buf (atom false) (mutex/mutex)
     (let [add! (if xform (xform impl/add!) impl/add!)]
