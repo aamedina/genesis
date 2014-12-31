@@ -17,7 +17,6 @@
             [genesis.protocols :as p]
             [genesis.jetty :refer [make-webapp]]
             [genesis.hazelcast.node :as node]
-            [genesis.hazelcast.services :as svc]
             [com.stuartsierra.component :as c]
             [environ.core :refer [env]])
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]
@@ -39,8 +38,6 @@
       this
       (try
         (let [config (.build (XmlConfigBuilder.))
-              _ (doseq [service (svc/declared-services)]
-                  (svc/register-service config service))
               nodes (into #{} (map c/start)
                           (repeatedly num-nodes #(node/make-node f config)))]
           (assoc this

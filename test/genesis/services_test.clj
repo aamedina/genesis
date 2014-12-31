@@ -25,11 +25,7 @@
   (defcommand echo
     :service basic-tcp-service
     identity)
-
-  (defn setup-service
-    [{:keys [remote codec pipeline] :as service}]
-    )
-
+  
   (def basic-udp-service
     (extend-service basic-service
       :remote basic-udp-server

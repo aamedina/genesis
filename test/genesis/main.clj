@@ -15,6 +15,7 @@
 (ns genesis.main
   (:gen-class)
   (:require [genesis.core :refer :all]
+            [genesis.atom :refer [make-atom find-atom]]
             [genesis.netty :as netty]
             [genesis.protocols :as p]
             [genesis.hazelcast.cluster :as clst]
@@ -24,11 +25,16 @@
             [genesis.hazelcast.client-test :as cl-test]
             [com.stuartsierra.component :as c]
             [clojure.tools.namespace.repl :as repl]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [criterium.core :refer [quick-bench]])
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
 (defonce system
-  (clst/system {:f (fn [node])
+  (clst/system {:f (fn [node]
+                     (let [x (make-atom :some-atom nil)]
+                       (println @x)
+                       (reset! x (.getName node))
+                       (println @x)))
                 :num-nodes 2}))
 
 (defn start
