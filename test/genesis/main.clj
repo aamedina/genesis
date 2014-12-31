@@ -16,28 +16,19 @@
   (:gen-class)
   (:require [genesis.core :refer :all]
             [genesis.netty :as netty]
-            [genesis.hazelcast.concurrent :as cc]
-            [genesis.hazelcast.concurrent.atom :as atom]
-            [genesis.distributed.configuration :refer [configure]]
             [genesis.protocols :as p]
             [genesis.hazelcast.cluster :as clst]
             [genesis.hazelcast.node :as n]
             [genesis.hazelcast.client :as cl]
             [genesis.hazelcast.node-test :as n-test]
             [genesis.hazelcast.client-test :as cl-test]
-            [genesis.distributed.atom :refer [command ]]
             [com.stuartsierra.component :as c]
             [clojure.tools.namespace.repl :as repl]
             [clojure.tools.logging :as log])
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
 (defonce system
-  (clst/system {:f (fn [node]
-                     (let [counter (.getDistributedObject
-                                    node
-                                    "CounterService"
-                                    "counter")]
-                       (println counter)))
+  (clst/system {:f (fn [node])
                 :num-nodes 2}))
 
 (defn start
@@ -51,9 +42,6 @@
 (defn reset
   []
   (stop)
-  (doseq [cls (descendants :genesis.distributed.services/service)]
-    (underive cls :genesis.distributed.services/service)
-    (remove-method configure cls))
   (repl/refresh-all :after 'genesis.main/-main))
 
 (defn -main

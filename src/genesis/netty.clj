@@ -14,7 +14,6 @@
 
 (ns genesis.netty
   (:require [genesis.core :refer :all]
-            [genesis.hazelcast.concurrent.atom :as atom]
             [com.stuartsierra.component :as c]
             [clojure.tools.logging :as log])
   (:import java.net.InetSocketAddress
