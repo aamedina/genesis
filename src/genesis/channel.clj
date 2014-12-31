@@ -22,12 +22,14 @@
 
 (ns genesis.channel
   (:require [genesis.core :refer :all]
+            [genesis.buffers :as buffers]
             [clojure.core.async :as a :refer :all
              :exclude [map into reduce merge take partition partition-by chan]]
             [clojure.core.async.impl.protocols :as impl]
             [clojure.core.async.impl.dispatch :as dispatch]
             [clojure.core.async.impl.mutex :as mutex])
   (:import [clojure.lang IFn IPersistentMap PersistentHashMap]
+           [com.hazelcast.core HazelcastInstance]
            [com.hazelcast.core IAtomicReference IQueue IList ILock]
            [java.util LinkedList Queue Iterator]
            [java.util.concurrent.locks Lock]))
@@ -40,7 +42,8 @@
 (defmacro assert-unlock [lock test msg]
   `(when-not ~test
      (.unlock ~lock)
-     (throw (new AssertionError (str "Assert failed: " ~msg "\n" (pr-str '~test))))))
+     (throw (new AssertionError (str "Assert failed: " ~msg "\n"
+                                     (pr-str '~test))))))
 
 (defn box [val]
   (reify clojure.lang.IDeref
@@ -55,7 +58,7 @@
                             ^IQueue buf
                             ^IAtomicReference closed
                             ^ILock mutex
-                            ^IAtomicReference add!]
+                            add!]
   MMC
   (cleanup
     [_]
@@ -305,20 +308,31 @@
       (impl/add! buf else))))
 
 (defn chan
-  ([channel-name buf] (chan channel-name buf nil))
-  ([channel-name buf xform] (chan channel-name buf xform nil))
-  ([channel-name buf xform exh]   
-   (ManyToManyChannel.
-    (LinkedList.) (LinkedList.) buf (atom false) (mutex/mutex)
-    (let [add! (if xform (xform impl/add!) impl/add!)]
-      (fn
-        ([buf]
-         (try
-           (add! buf)
-           (catch Throwable t
-             (handle buf exh t))))
-        ([buf val]
-         (try
-           (add! buf val)
-           (catch Throwable t
-             (handle buf exh t)))))))))
+  ([channel-name]
+   (chan channel-name nil))
+  ([channel-name buf]
+   (chan channel-name buf nil))
+  ([channel-name buf xform]
+   (chan channel-name buf xform nil))
+  ([channel-name buf xform exh] 
+   (let [node (find-node)
+         takes (.getList node (str channel-name "-takes"))
+         puts (.getList node (str channel-name "-puts"))
+         closed (.getAtomicReference node (str channel-name "-closed?"))
+         mutex (.getLock node (str channel-name "-lock"))]
+     (ManyToManyChannel. takes puts buf (if (.isNull closed)
+                                          (doto closed
+                                            (.set false))
+                                          closed) mutex
+      (let [add! (if xform (xform impl/add!) impl/add!)]
+        (fn
+          ([buf]
+           (try
+             (add! buf)
+             (catch Throwable t
+               (handle buf exh t))))
+          ([buf val]
+           (try
+             (add! buf val)
+             (catch Throwable t
+               (handle buf exh t))))))))))

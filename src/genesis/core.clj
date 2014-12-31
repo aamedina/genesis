@@ -15,7 +15,7 @@
 (ns genesis.core
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
-(defn find-node
+(defn ^HazelcastInstance find-node
   []
   {:post [(boolean %)]}
   (first (Hazelcast/getAllHazelcastInstances)))
