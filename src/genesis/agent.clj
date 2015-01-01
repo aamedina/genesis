@@ -13,7 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.agent
-  (:refer-clojure :exclude [send agent-error shutdown-agents])
+  (:refer-clojure :exclude [send agent-error shutdown-agents restart-agent])
   (:require [genesis.core :refer :all])
   (:import [genesis.atom IValidate IWatchable]
            [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
@@ -67,8 +67,8 @@
       (try
         (let [oldval (.get state)
               newval (apply f oldval args)]
-          (.setState agent newval)
-          (.notifyWatches agent oldval newval))
+          (.setState this newval)
+          (.notifyWatches this oldval newval))
         (catch Throwable e
           (.set error e)))
       (if (.get error)
@@ -211,3 +211,7 @@
 (defn agent-error
   [agent]
   (.get (.-error agent)))
+
+(defn restart-agent
+  [agent new-state & {:keys [clear-actions]}]
+  (.restart agent new-state clear-actions))
