@@ -30,11 +30,7 @@
   (:import [com.hazelcast.core Hazelcast HazelcastInstance]))
 
 (defonce system
-  (clst/system {:f (fn [node]
-                     (let [x (make-atom :some-atom nil)]
-                       (println @x)
-                       (reset! x (.getName node))
-                       (println @x)))
+  (clst/system {:f (fn [node])
                 :num-nodes 2}))
 
 (defn start

@@ -39,6 +39,16 @@
 (System/setProperty "hazelcast.backpressure.enabled" "true")
 (System/setProperty "hazelcast.backpressure.syncwindow" "1024")
 
+(defmacro with-lock
+  [lock & body]
+  `(let [lock# ~lock]
+     (.lock lock#)
+     (try
+       ~@body
+       (finally
+         (when (.isLockedByCurrentThread lock#)
+           (.unlock lock#))))))
+
 (defmacro assert-unlock [lock test msg]
   `(when-not ~test
      (.unlock ~lock)
@@ -49,19 +59,18 @@
   (reify clojure.lang.IDeref
     (deref [_] val)))
 
-(defprotocol MMC
-  (cleanup [_])
-  (abort [_]))
+(definterface MMC
+  (cleanup [])
+  (abort []))
 
 (deftype ManyToManyChannel [^IList takes
                             ^IList puts
-                            ^IQueue buf
+                            ^Queue buf
                             ^IAtomicReference closed
                             ^ILock mutex
                             add!]
   MMC
-  (cleanup
-    [_]
+  (cleanup [_]
     (when-not (.isEmpty takes)
       (let [iter (.iterator takes)]
         (loop [taker (.next iter)]
@@ -77,8 +86,7 @@
           (when (.hasNext iter)
             (recur (.next iter)))))))
 
-  (abort
-    [this]
+  (abort [this]
     (let [iter (.iterator puts)]
       (when (.hasNext iter)
         (loop [^Lock putter (.next iter)]
@@ -97,103 +105,104 @@
     [this val handler]
     (when (nil? val)
       (throw (IllegalArgumentException. "Can't put nil on channel")))
-    (.lock mutex)
-    (cleanup this)
-    (if @closed
-      (do (.unlock mutex)
-          (box false))
-      (let [^Lock handler handler]
-        (if (and buf (not (impl/full? buf)) (not (.isEmpty takes)))
-          (do
-            (.lock handler)
-            (let [put-cb (and (impl/active? handler) (impl/commit handler))]
-              (.unlock handler)
-              (if put-cb
-                (let [done? (reduced? (add! buf val))]
-                  (if (pos? (count buf))
-                    (let [iter (.iterator takes)
-                          take-cb (when (.hasNext iter)
-                                    (loop [^Lock taker (.next iter)]
-                                      (.lock taker)
-                                      (let [ret (and (impl/active? taker) (impl/commit taker))]
-                                        (.unlock taker)
-                                        (if ret
-                                          (do
-                                            (.remove iter)
-                                            ret)
-                                          (when (.hasNext iter)
-                                            (recur (.next iter)))))))]
-                      (if take-cb
-                        (let [val (impl/remove! buf)]
+    (with-lock mutex
+      (.cleanup this)
+      (if (.get closed)
+        (box false)
+        (let [^Lock handler handler]
+          (if (and buf (not (impl/full? buf)) (not (.isEmpty takes)))
+            (do
+              (.lock handler)
+              (let [put-cb (and (impl/active? handler) (impl/commit handler))]
+                (.unlock handler)
+                (if put-cb
+                  (let [done? (reduced? (add! buf val))]
+                    (if (pos? (count buf))
+                      (let [iter (.iterator takes)
+                            take-cb (when (.hasNext iter)
+                                      (loop [^Lock taker (.next iter)]
+                                        (.lock taker)
+                                        (let [ret (and (impl/active? taker)
+                                                       (impl/commit taker))]
+                                          (.unlock taker)
+                                          (if ret
+                                            (do
+                                              (.remove iter)
+                                              ret)
+                                            (when (.hasNext iter)
+                                              (recur (.next iter)))))))]
+                        (if take-cb
+                          (let [val (impl/remove! buf)]
+                            (when done?
+                              (.abort this))
+                            (.unlock mutex)
+                            (dispatch/run (fn [] (take-cb val))))
                           (when done?
-                            (abort this))
-                          (.unlock mutex)
-                          (dispatch/run (fn [] (take-cb val))))
-                        (do
-                          (when done?
-                            (abort this))
-                          (.unlock mutex))))
-                    (do
+                            (.abort this))))
                       (when done?
-                        (abort this))
-                      (.unlock mutex)))
-                  (box true))
-                (do (.unlock mutex)
-                    nil))))
-          (let [iter (.iterator takes)
-                [put-cb take-cb] (when (.hasNext iter)
-                                   (loop [^Lock taker (.next iter)]
-                                     (if (< (impl/lock-id handler) (impl/lock-id taker))
-                                       (do (.lock handler) (.lock taker))
-                                       (do (.lock taker) (.lock handler)))
-                                     (let [ret (when (and (impl/active? handler) (impl/active? taker))
-                                                 [(impl/commit handler) (impl/commit taker)])]
-                                       (.unlock handler)
-                                       (.unlock taker)
-                                       (if ret
-                                         (do
-                                           (.remove iter)
-                                           ret)
-                                         (when (.hasNext iter)
-                                           (recur (.next iter)))))))]
-            (if (and put-cb take-cb)
-              (do
-                (.unlock mutex)
-                (dispatch/run (fn [] (take-cb val)))
-                (box true))
-              (if (and buf (not (impl/full? buf)))
+                        (.abort this)))
+                    (box true))
+                  nil)))
+            (let [iter (.iterator takes)
+                  [put-cb take-cb]
+                  (when (.hasNext iter)
+                    (loop [^Lock taker (.next iter)]
+                      (if (< (impl/lock-id handler)
+                             (impl/lock-id taker))
+                        (do (.lock handler) (.lock taker))
+                        (do (.lock taker) (.lock handler)))
+                      (let [ret (when (and (impl/active? handler)
+                                           (impl/active? taker))
+                                  [(impl/commit handler)
+                                   (impl/commit taker)])]
+                        (.unlock handler)
+                        (.unlock taker)
+                        (if ret
+                          (do
+                            (.remove iter)
+                            ret)
+                          (when (.hasNext iter)
+                            (recur (.next iter)))))))]
+              (if (and put-cb take-cb)
                 (do
-                  (.lock handler)
-                  (let [put-cb (and (impl/active? handler) (impl/commit handler))]
-                    (.unlock handler)
-                    (if put-cb
-                      (let [done? (reduced? (add! buf val))]
-                        (when done?
-                          (abort this))
-                        (.unlock mutex)
-                        (box true))
-                      (do (.unlock mutex)
-                          nil))))
-                (do
-                  (when (impl/active? handler)
-                    (assert-unlock mutex
-                                   (< (.size puts) impl/MAX-QUEUE-SIZE)
-                                   (str "No more than " impl/MAX-QUEUE-SIZE
-                                        " pending puts are allowed on a single channel."
-                                        " Consider using a windowed buffer."))
-                    (.add puts [handler val]))
                   (.unlock mutex)
-                  nil))))))))
-  
+                  (dispatch/run (fn [] (take-cb val)))
+                  (box true))
+                (if (and buf (not (impl/full? buf)))
+                  (do
+                    (.lock handler)
+                    (let [put-cb (and (impl/active? handler)
+                                      (impl/commit handler))]
+                      (.unlock handler)
+                      (if put-cb
+                        (let [done? (reduced? (add! buf val))]
+                          (when done?
+                            (.abort this))
+                          (.unlock mutex)
+                          (box true))
+                        (do (.unlock mutex)
+                            nil))))
+                  (do
+                    (when (impl/active? handler)
+                      (assert-unlock mutex
+                                     (< (.size puts) impl/MAX-QUEUE-SIZE)
+                                     (str "No more than " impl/MAX-QUEUE-SIZE
+                                          " pending puts are allowed on a"
+                                          " single channel."
+                                          " Consider using a windowed buffer."))
+                      (.add puts [handler val]))
+                    (.unlock mutex)
+                    nil)))))))))
   impl/ReadPort
   (take!
     [this handler]
     (.lock mutex)
-    (cleanup this)
+    (.cleanup this)
     (let [^Lock handler handler
           commit-handler (fn []
                            (.lock handler)
-                           (let [take-cb (and (impl/active? handler) (impl/commit handler))]
+                           (let [take-cb (and (impl/active? handler)
+                                              (impl/commit handler))]
                              (.unlock handler)
                              take-cb))]
       (if (and buf (pos? (count buf)))
@@ -211,11 +220,12 @@
                         (.remove iter)
                         (let [cbs (if cb (conj cbs cb) cbs)
                               done? (when cb (reduced? (add! buf val)))]
-                          (if (and (not done?) (not (impl/full? buf)) (.hasNext iter))
+                          (if (and (not done?) (not (impl/full? buf))
+                                   (.hasNext iter))
                             (recur cbs (.next iter))
                             [done? cbs])))))]
               (when done?
-                (abort this))
+                (.abort this))
               (.unlock mutex)
               (doseq [cb cbs]
                 (dispatch/run #(cb true)))
@@ -229,7 +239,8 @@
                   (if (< (impl/lock-id handler) (impl/lock-id putter))
                     (do (.lock handler) (.lock putter))
                     (do (.lock putter) (.lock handler)))
-                  (let [ret (when (and (impl/active? handler) (impl/active? putter))
+                  (let [ret (when (and (impl/active? handler)
+                                       (impl/active? putter))
                               [(impl/commit handler) (impl/commit putter) val])]
                     (.unlock handler)
                     (.unlock putter)
@@ -246,7 +257,7 @@
               (.unlock mutex)
               (dispatch/run #(put-cb true))
               (box val))
-            (if @closed
+            (if (.get closed)
               (do
                 (when buf (add! buf))
                 (let [has-val (and buf (pos? (count buf)))]
@@ -261,23 +272,24 @@
                 (assert-unlock mutex
                                (< (.size takes) impl/MAX-QUEUE-SIZE)
                                (str "No more than " impl/MAX-QUEUE-SIZE
-                                    " pending takes are allowed on a single channel."))
+                                    " pending takes are allowed on a"
+                                    " single channel."))
                 (.add takes handler)
                 (.unlock mutex)
                 nil)))))))
 
   impl/Channel
-  (closed? [_] @closed)
+  (closed? [_] (.get closed))
   (close!
     [this]
     (.lock mutex)
-    (cleanup this)
-    (if @closed
+    (.cleanup this)
+    (if (.get closed)
       (do
         (.unlock mutex)
         nil)
       (do
-        (reset! closed true)
+        (.set closed true)
         (when (and buf (.isEmpty puts))
           (add! buf))
         (let [iter (.iterator takes)]
@@ -287,7 +299,8 @@
               (let [take-cb (and (impl/active? taker) (impl/commit taker))]
                 (.unlock taker)
                 (when take-cb
-                  (let [val (when (and buf (pos? (count buf))) (impl/remove! buf))]
+                  (let [val (when (and buf (pos? (count buf)))
+                              (impl/remove! buf))]
                     (dispatch/run (fn [] (take-cb val)))))
                 (.remove iter)
                 (when (.hasNext iter)
@@ -315,7 +328,8 @@
   ([channel-name buf xform]
    (chan channel-name buf xform nil))
   ([channel-name buf xform exh] 
-   (let [node (find-node)
+   (let [channel-name (name channel-name)
+         node (find-node)
          takes (.getList node (str channel-name "-takes"))
          puts (.getList node (str channel-name "-puts"))
          closed (.getAtomicReference node (str channel-name "-closed?"))
@@ -323,16 +337,17 @@
      (ManyToManyChannel. takes puts buf (if (.isNull closed)
                                           (doto closed
                                             (.set false))
-                                          closed) mutex
-      (let [add! (if xform (xform impl/add!) impl/add!)]
-        (fn
-          ([buf]
-           (try
-             (add! buf)
-             (catch Throwable t
-               (handle buf exh t))))
-          ([buf val]
-           (try
-             (add! buf val)
-             (catch Throwable t
-               (handle buf exh t))))))))))
+                                          closed)
+                         mutex
+                         (let [add! (if xform (xform impl/add!) impl/add!)]
+                           (fn
+                             ([buf]
+                              (try
+                                (add! buf)
+                                (catch Throwable t
+                                  (handle buf exh t))))
+                             ([buf val]
+                              (try
+                                (add! buf val)
+                                (catch Throwable t
+                                  (handle buf exh t))))))))))
