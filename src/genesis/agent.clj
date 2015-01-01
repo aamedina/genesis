@@ -13,7 +13,8 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.agent
-  (:refer-clojure :exclude [send agent-error shutdown-agents restart-agent])
+  (:refer-clojure :exclude [send agent-error shutdown-agents restart-agent
+                            await-for])
   (:require [genesis.core :refer :all])
   (:import [genesis.atom IValidate IWatchable]
            [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
@@ -60,7 +61,8 @@
     (let [action (make-action agent-name f args)]
       (if-let [actions (.get nested)]
         (.set nested (conj actions action))
-        (.enqueue this action))))
+        (.enqueue this action)))
+    this)
   (doRun [this f args]
     (try
       (.set nested [])
@@ -173,7 +175,7 @@
          validator-ref (.getAtomicReference node (str agent-name "-agent-vf"))
          watches (.getMap node (str agent-name "-agent-watches"))
          meta-ref (.getAtomicReference node (str agent-name "-agent-meta"))]
-
+     
      (when (and (.isNull agent-state) state)
        (.set agent-state state))
 
@@ -215,3 +217,12 @@
 (defn restart-agent
   [agent new-state & {:keys [clear-actions]}]
   (.restart agent new-state clear-actions))
+
+(defn await-for
+  [timeout-ms & [a & agents]]
+  (let [latch (doto (.getCountDownLatch (find-node) (.-agent-name a))
+                (.trySetCount (inc (count agents))))
+        count-down (fn [agent] (.countDown latch) agent)]
+    (doseq [agent (cons a agents)]
+      (send agent count-down))
+    (.await latch timeout-ms java.util.concurrent.TimeUnit/MILLISECONDS)))
