@@ -13,7 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.agent
-  (:refer-clojure :exclude [send])
+  (:refer-clojure :exclude [send shutdown-agents])
   (:require [genesis.core :refer :all])
   (:import [genesis.atom IValidate IWatchable]
            [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
@@ -26,7 +26,11 @@
              ^clojure.lang.ISeq args])
   (dispatch [^clojure.lang.IFn f
              ^clojure.lang.ISeq args
-             ^java.util.concurrent.Executor exec]))
+             ^java.util.concurrent.Executor exec])
+  (doRun [^clojure.lang.IFn f ^clojure.lang.ISeq args])
+  (setState [newval]))
+
+(declare make-action)
 
 (deftype Agent [^IAtomicReference state
                 ^IExecutorService exec
@@ -37,11 +41,27 @@
                 ^IAtomicReference error-handler
                 ^IAtomicReference validator
                 ^IMap watches                
-                ^IAtomicReference meta]
+                ^IAtomicReference meta
+                ^String agent-name]
   IAgent
   (dispatch [this f args] (.dispatch this f args exec))
   (dispatch [_ f args exec]
     (.set state (apply f (.get state) args)))
+  (doRun [_ f args]
+    (let [nested (ThreadLocal.)]
+      (try
+        (let [oldval (.get state)
+              newval (f oldval args)]
+          (.setState agent newval)
+          (.notifyWatches agent oldval newval))
+        (catch Throwable e
+          (.set (.-error agent) e)))
+      ))
+  (setState [this newval]
+    (.validate this newval)
+    (let [ret (not= (.get state) newval)]
+      (.set state newval)
+      ret))
   
   clojure.lang.IRef
   (deref [_] (.get state))
@@ -92,8 +112,20 @@
          watches (.getMap node (str agent-name "-agent-watches"))
          meta (.getAtomicReference node (str agent-name "-agent-meta"))]
      (Agent. state exec counter action-queue error error-mode handler
-             validator watches meta))))
+             validator watches meta agent-name))))
 
 (defn send
   [a f & args]
   (.dispatch a f args))
+
+(defn shutdown-agents
+  []
+  (when-let [node (find-node)]
+    (.shutdown (.getExecutorService node "exec"))))
+
+(defn make-action
+  [agent-name f args]
+  (reify Runnable
+    (run [_]
+      (.doRun (make-agent agent-name) f args))
+    java.io.Serializable))
