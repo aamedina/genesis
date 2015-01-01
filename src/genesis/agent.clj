@@ -13,25 +13,35 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.agent
+  (:refer-clojure :exclude [send])
   (:require [genesis.core :refer :all])
   (:import [genesis.atom IValidate IWatchable]
            [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
            [java.util.concurrent Executor]
-           [com.hazelcast.core HazelcastInstance IAtomicReference IMap]
+           [com.hazelcast.core HazelcastInstance IAtomicReference IMap IQueue]
            [com.hazelcast.core IAtomicLong IExecutorService]))
 
 (definterface IAgent
+  (dispatch [^clojure.lang.IFn f
+             ^clojure.lang.ISeq args])
   (dispatch [^clojure.lang.IFn f
              ^clojure.lang.ISeq args
              ^java.util.concurrent.Executor exec]))
 
 (deftype Agent [^IAtomicReference state
-                ^IAtomicReference validator
-                ^IMap watches
+                ^IExecutorService exec
                 ^IAtomicLong send-off-thread-pool-counter
+                ^IQueue action-queue
+                ^IAtomicReference error
+                ^IAtomicReference error-mode
+                ^IAtomicReference error-handler
+                ^IAtomicReference validator
+                ^IMap watches                
                 ^IAtomicReference meta]
   IAgent
-  (dispatch [_ f args exec])
+  (dispatch [this f args] (.dispatch this f args exec))
+  (dispatch [_ f args exec]
+    (.set state (apply f (.get state) args)))
   
   clojure.lang.IRef
   (deref [_] (.get state))
@@ -69,6 +79,21 @@
 (defn make-agent
   ([agent-name] (make-agent agent-name nil))
   ([agent-name state & options]
-   (let [node (find-node)
-         exec (.getExecutorService node "exec")]
-     )))
+   (let [agent-name (name agent-name)
+         node (find-node)
+         exec (.getExecutorService node "exec")
+         state (.getAtomicReference node (str agent-name "-agent-state"))
+         counter (.getAtomicLong node (str agent-name "-counter"))
+         action-queue (.getQueue node (str agent-name "-action-queue"))
+         error (.getAtomicReference node (str agent-name "-agent-error"))
+         error-mode (.getAtomicReference node (str agent-name "-error-mode"))
+         handler (.getAtomicReference node (str agent-name "-error-handler"))
+         validator (.getAtomicReference node (str agent-name "-agent-vf"))
+         watches (.getMap node (str agent-name "-agent-watches"))
+         meta (.getAtomicReference node (str agent-name "-agent-meta"))]
+     (Agent. state exec counter action-queue error error-mode handler
+             validator watches meta))))
+
+(defn send
+  [a f & args]
+  (.dispatch a f args))
