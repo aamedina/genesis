@@ -14,9 +14,61 @@
 
 (ns genesis.agent
   (:require [genesis.core :refer :all])
-  (:import [clojure.lang IFn IPersistentMap PersistentHashMap]
-           [com.hazelcast.core HazelcastInstance IAtomicReference]))
+  (:import [genesis.atom IValidate IWatchable]
+           [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
+           [java.util.concurrent Executor]
+           [com.hazelcast.core HazelcastInstance IAtomicReference IMap]
+           [com.hazelcast.core IAtomicLong IExecutorService]))
+
+(definterface IAgent
+  (dispatch [^clojure.lang.IFn f
+             ^clojure.lang.ISeq args
+             ^java.util.concurrent.Executor exec]))
+
+(deftype Agent [^IAtomicReference state
+                ^IAtomicReference validator
+                ^IMap watches
+                ^IAtomicLong send-off-thread-pool-counter
+                ^IAtomicReference meta]
+  IAgent
+  (dispatch [_ f args exec])
+  
+  clojure.lang.IRef
+  (deref [_] (.get state))
+  (setValidator [this f]
+    (.validate this f (.get state))
+    (.set validator f))
+  (getValidator [_] (.get validator))
+  (getWatches [_] watches)
+  (addWatch [this k f] (.put watches k f))
+  (removeWatch [this k] (.remove watches k))
+
+  IWatchable
+  (notifyWatches [this oldval newval]
+    (doseq [[k f] watches]
+      (f k this oldval newval)))
+
+  clojure.lang.IReference
+  (meta [_] (.get meta))
+  (alterMeta [_ f args]
+    (.set meta (apply f (.get meta) args)))
+  (resetMeta [_ m]
+    (.set meta m))
+  IValidate
+  (validate [this val]
+    (.validate this (.get validator) val))
+  (validate [_ f val]
+    (try
+      (when (and (not (nil? f)) (false? (boolean (f val))))
+        (throw (IllegalStateException. "Invalid reference state")))
+      (catch RuntimeException e
+        (throw e))
+      (catch Exception e
+        (throw (IllegalStateException. "Invalid reference state" e))))))
 
 (defn make-agent
   ([agent-name] (make-agent agent-name nil))
-  ([agent-name state & options]))
+  ([agent-name state & options]
+   (let [node (find-node)
+         exec (.getExecutorService node "exec")]
+     )))
