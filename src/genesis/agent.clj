@@ -12,4 +12,11 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.io)
+(ns genesis.agent
+  (:require [genesis.core :refer :all])
+  (:import [clojure.lang IFn IPersistentMap PersistentHashMap]
+           [com.hazelcast.core HazelcastInstance IAtomicReference]))
+
+(defn make-agent
+  ([agent-name] (make-agent agent-name nil))
+  ([agent-name state & options]))

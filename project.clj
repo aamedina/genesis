@@ -21,7 +21,6 @@
                  [org.eclipse.jetty/jetty-webapp "9.2.6.v20141205"]
                  [org.eclipse.jetty/jetty-jsp "9.2.6.v20141205"
                   :exclusions [org.glassfish/javax.el]]
-                 [com.taoensso/nippy "2.7.0"]
                  [environ "1.0.0"]]
   :plugins [[lein-environ "1.0.0"]]  
   :global-vars {*assert* false}
