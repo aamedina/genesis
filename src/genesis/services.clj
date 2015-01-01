@@ -12,12 +12,10 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-(ns genesis.commands
-  (:require [genesis.core :refer :all]
-            [genesis.database :as db]))
+(ns genesis.services
+  (:require [genesis.core :refer [find-node]]
+            [genesis.netty :as netty]))
 
-(defmacro defcommand
-  [command-name & options]
-  (let [{:keys [service]} (apply hash-map (butlast options))
-        f (last options)]
-    `(def ~command-name ~f)))
+(defmacro defservice
+  [service-name & {:keys [remote]}]
+  `(def ~service-name ~remote))
