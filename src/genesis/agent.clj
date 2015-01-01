@@ -13,7 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.agent
-  (:refer-clojure :exclude [send shutdown-agents])
+  (:refer-clojure :exclude [send agent-error shutdown-agents])
   (:require [genesis.core :refer :all])
   (:import [genesis.atom IValidate IWatchable]
            [clojure.lang IFn ISeq IPersistentMap PersistentHashMap]
@@ -28,7 +28,15 @@
              ^clojure.lang.ISeq args
              ^java.util.concurrent.Executor exec])
   (doRun [^clojure.lang.IFn f ^clojure.lang.ISeq args])
-  (setState [newval]))
+  (setErrorMode [^clojure.lang.Keyword k])
+  (^clojure.lang.Keyword getErrorMode [])
+  (setErrorHandler [^clojure.lang.IFn f])
+  (^clojure.lang.IFn getErrorHandler [])
+  (restart [new-state clear-action?])
+  (releasePendingSends [])
+  (setState [newval])
+  (execute [^Runnable action])
+  (enqueue [^Runnable action]))
 
 (declare make-action)
 
@@ -42,26 +50,80 @@
                 ^IAtomicReference validator
                 ^IMap watches                
                 ^IAtomicReference meta
-                ^String agent-name]
+                ^String agent-name
+                ^ThreadLocal nested]
   IAgent
   (dispatch [this f args] (.dispatch this f args exec))
-  (dispatch [_ f args exec]
-    (.set state (apply f (.get state) args)))
-  (doRun [_ f args]
-    (let [nested (ThreadLocal.)]
+  (dispatch [this f args exec]
+    (when-let [err (.get error)]
+      (throw (ex-info "Agent is failed, needs restart" {:error err})))
+    (let [action (make-action agent-name f args)]
+      (if-let [actions (.get nested)]
+        (.set nested (conj actions action))
+        (.enqueue this action))))
+  (doRun [this f args]
+    (try
+      (.set nested [])
       (try
         (let [oldval (.get state)
-              newval (f oldval args)]
+              newval (apply f oldval args)]
           (.setState agent newval)
           (.notifyWatches agent oldval newval))
         (catch Throwable e
-          (.set (.-error agent) e)))
-      ))
+          (.set error e)))
+      (if (.get error)
+        (do (.set nested nil)
+            (try
+              (when-let [f (.get error-handler)]
+                (f this (.get error)))
+              (catch Throwable e))
+            (when (identical? (.get error-mode) :continue)
+              (.set error nil)))
+        (.releasePendingSends this))
+      (when-let [next-action (and (nil? (.get error)) (.peek action-queue))]
+        (.execute this next-action))
+      (finally
+        (.set nested nil))))
   (setState [this newval]
     (.validate this newval)
     (let [ret (not= (.get state) newval)]
-      (.set state newval)
+      (when ret
+        (.set state newval))
       ret))
+  (setErrorMode [_ k] (.set error-mode k))
+  (getErrorMode [_] error-mode)
+  (setErrorHandler [_ f] (.set error-handler f))
+  (getErrorHandler [_] error-handler)
+  (restart [this new-state clear-actions?]
+    (when (nil? (.get error))
+      (throw (ex-info "Agent does not need a restart" {:agent this})))
+    (.validate this new-state)
+    (.set state new-state)
+    (if clear-actions?
+      (doseq [action action-queue]
+        (.remove action-queue action))
+      (when-let [prior-action (.peek action-queue)]
+        (.execute this prior-action))))
+  (releasePendingSends [this]
+    (if-let [sends (.get nested)]
+      (do (doseq [action sends]
+            (.enqueue this action))
+          (.set nested [])
+          (count sends))
+      0))
+  (execute [this action]
+    (try
+      (.execute exec action)
+      (catch Throwable e
+        (if-let [f (.get error-handler)]
+          (try
+            (f this e)
+            (catch Throwable e))))))
+  (enqueue [this action]
+    (let [prior-action (.peek action-queue)]
+      (if (and (nil? prior-action) (nil? (.get error)))
+        (.execute this action)
+        (.offer action-queue action))))
   
   clojure.lang.IRef
   (deref [_] (.get state))
@@ -98,21 +160,37 @@
 
 (defn make-agent
   ([agent-name] (make-agent agent-name nil))
-  ([agent-name state & options]
+  ([agent-name state & {:keys [validator error-mode meta error-handler]}]
    (let [agent-name (name agent-name)
          node (find-node)
-         exec (.getExecutorService node "exec")
-         state (.getAtomicReference node (str agent-name "-agent-state"))
+         exec (.getExecutorService node "genesis-agent-send-pool")
+         agent-state (.getAtomicReference node (str agent-name "-agent-state"))
          counter (.getAtomicLong node (str agent-name "-counter"))
          action-queue (.getQueue node (str agent-name "-action-queue"))
          error (.getAtomicReference node (str agent-name "-agent-error"))
-         error-mode (.getAtomicReference node (str agent-name "-error-mode"))
+         err-mode (.getAtomicReference node (str agent-name "-error-mode"))
          handler (.getAtomicReference node (str agent-name "-error-handler"))
-         validator (.getAtomicReference node (str agent-name "-agent-vf"))
+         validator-ref (.getAtomicReference node (str agent-name "-agent-vf"))
          watches (.getMap node (str agent-name "-agent-watches"))
-         meta (.getAtomicReference node (str agent-name "-agent-meta"))]
-     (Agent. state exec counter action-queue error error-mode handler
-             validator watches meta agent-name))))
+         meta-ref (.getAtomicReference node (str agent-name "-agent-meta"))]
+
+     (when (and (.isNull agent-state) state)
+       (.set agent-state state))
+
+     (when (.isNull err-mode)
+       (.set err-mode (or error-mode :continue)))
+
+     (when (and (.isNull handler) error-handler)
+       (.set handler error-handler))    
+
+     (when (.isNull validator-ref)
+       (.set validator-ref validator))
+     
+     (when (.isNull meta-ref)
+       (.set meta-ref (or meta {})))
+     
+     (Agent. agent-state exec counter action-queue error error-mode handler
+             validator-ref watches meta-ref agent-name (ThreadLocal.)))))
 
 (defn send
   [a f & args]
@@ -121,7 +199,7 @@
 (defn shutdown-agents
   []
   (when-let [node (find-node)]
-    (.shutdown (.getExecutorService node "exec"))))
+    (.shutdown (.getExecutorService node "genesis-agent-send-pool"))))
 
 (defn make-action
   [agent-name f args]
@@ -129,3 +207,7 @@
     (run [_]
       (.doRun (make-agent agent-name) f args))
     java.io.Serializable))
+
+(defn agent-error
+  [agent]
+  (.get (.-error agent)))
