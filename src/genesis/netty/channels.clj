@@ -16,6 +16,8 @@
   (:require [clojure.tools.logging :as log])
   (:import [io.netty.channel ChannelHandler]))
 
+(set! *warn-on-reflection* true)
+
 (defonce ^:private default-channel-handler-methods
   '[(handlerAdded [_ ctx#])
     (handlerRemoved [_ ctx#])

@@ -18,8 +18,13 @@
   (:import [io.netty.channel ChannelHandler]
            [io.netty.buffer ByteBuf Unpooled]))
 
+(set! *warn-on-reflection* true)
+
 (defn byte-to-message-decoder
   [decoder]
-  (let [buf []]
+  (let [buf (volatile! nil)]
     (channel-handler
-     )))
+     (handlerRemoved [_ ctx])
+     (channelRead [_ ctx msg])
+     (channelReadComplete [_ ctx])
+     (channelInactive [_ ctx]))))
