@@ -13,6 +13,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (ns genesis.netty.channels
+  (:require [clojure.tools.logging :as log])
   (:import [io.netty.channel ChannelHandler]))
 
 (defonce ^:private default-channel-handler-methods
@@ -49,3 +50,21 @@
     `(reify ChannelHandler
        ~@impls
        ~@specs)))
+
+(defmacro channel-initializer
+  [initializer & specs]
+  `(channel-handler
+    (channelRegistered [this# ctx#]
+      (let [pipeline# (.pipeline ctx#)]
+        (try
+          (~initializer (.channel ctx#))
+          (.remove pipeline# this#)
+          (.fireChannelRegistered ctx#)
+          (catch Throwable t#
+            (log/warn (str "Failed to initialize a channel. "
+                           "Closing: " (.channel ctx#)) t#)
+            (.close ctx#))
+          (finally
+            (when (.context pipeline# this#)
+              (.remove pipeline# this#))))))
+    ~@specs))
