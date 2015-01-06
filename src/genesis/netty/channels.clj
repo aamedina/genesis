@@ -47,26 +47,29 @@
 
 (defmacro channel-handler
   [& specs]
-  (let [impls (make-method-map (take-while list? specs))
-        specs (drop-while list? specs)]
+  (let [impls (make-method-map (take-while seq? specs))
+        specs (drop-while seq? specs)]
     `(reify ChannelHandler
        ~@impls
        ~@specs)))
 
 (defmacro channel-initializer
-  [initializer & specs]
+  [& [[_ args & body] & specs]]
   `(channel-handler
-    (channelRegistered [this# ctx#]
-      (let [pipeline# (.pipeline ctx#)]
-        (try
-          (~initializer (.channel ctx#))
-          (.remove pipeline# this#)
-          (.fireChannelRegistered ctx#)
-          (catch Throwable t#
-            (log/warn (str "Failed to initialize a channel. "
-                           "Closing: " (.channel ctx#)) t#)
-            (.close ctx#))
-          (finally
-            (when (.context pipeline# this#)
-              (.remove pipeline# this#))))))
-    ~@specs))
+     (~'channelRegistered [this# ctx#]
+       (let [pipeline# (.pipeline ctx#)]
+         (try
+           (let [~(first args) this#
+                 ~(second args) (.channel ctx#)]
+             ~@body)
+           (.remove pipeline# this#)
+           (.fireChannelRegistered ctx#)
+           (catch Throwable t#
+             (log/warn (str "Failed to initialize a channel. "
+                            "Closing: " (.channel ctx#)) t#)
+             (.printStackTrace t#)
+             (.close ctx#))
+           (finally
+             (when (.context pipeline# this#)
+               (.remove pipeline# this#))))))
+     ~@specs))

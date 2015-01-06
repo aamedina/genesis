@@ -14,8 +14,12 @@
 
 (ns genesis.services
   (:require [genesis.core :refer [find-node]]
-            [genesis.netty :as netty]))
+            [genesis.netty :as netty]
+            [genesis.netty.channels :refer [channel-initializer]]))
 
 (defmacro defservice
-  [service-name & {:keys [remote]}]
-  `(def ~service-name ~remote))
+  [service-name args service-options & specs]
+  (let [config (-> service-options
+                   (assoc :handler `(channel-initializer ~@specs))) ]
+    `(defn ~service-name ~args
+       (netty/make-netty-server ~config))))

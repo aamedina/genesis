@@ -17,6 +17,6 @@
   (:require [datomic.api :refer :all :as api]
             [environ.core :refer [env]]))
 
-(defonce ^:dynamic *uri* (env :database-uri))
-(defonce ^:dynamic *connection* (do (create-database *uri*) (connect *uri*)))
-(defonce ^:dynamic *db* (db *connection*))
+;; (defonce ^:dynamic *uri* (env :datomic-uri))
+;; (defonce ^:dynamic *connection* (do (create-database *uri*) (connect *uri*)))
+;; (defonce ^:dynamic *db* (db *connection*))

@@ -16,72 +16,52 @@
   (:require [genesis.netty.channels :refer [channel-handler]]
             [clojure.tools.logging :as log])
   (:import [io.netty.channel ChannelHandler]
-           [io.netty.buffer ByteBuf Unpooled]
-           [io.netty.handler.codec DecoderException]
-           [io.netty.util.internal RecyclableArrayList StringUtil]))
+           [io.netty.buffer ByteBuf Unpooled]))
 
 (set! *warn-on-reflection* true)
 
-(defprotocol Decoder
-  (decode [_ ctx in out]))
-
 (defmacro byte-to-message-decoder
-  [decoder & specs]
-  `(let [cumulation# (volatile! nil)]
-     (channel-handler
-       (handlerRemoved [_ ctx#]
-         (when-let [^ByteBuf buf# @cumulation#]
-           (when (.isReadable buf#)
-             (.fireChannelRead ctx# (.readBytes buf# (.readableBytes buf#)))))
-         (vreset! cumulation# nil)
-         (.fireChannelReadComplete ctx#))
-       (channelRead [this# ctx# msg#]
-         (if (instance? ByteBuf msg#)
-           (let [out# (RecyclableArrayList/newInstance)]
-             (try
-               (if (nil? @cumulation#)
-                 (vreset! cumulation# msg#)
-                 (let [buf# @cumulation#]
-                   (when (or (> (.writerIndex buf#)
-                                (- (.maxCapacity buf#)
-                                   (.readableBytes msg#)))
-                             (> (.refCnt buf#) 1))
-                     (let [new# (.. ctx#
-                                    (alloc)
-                                    (buffer (+ (.readableBytes buf#)
-                                               (.readableBytes msg#))))]
-                       (.writeBytes new#)
-                       (.release buf#)
-                       (vreset! cumulation# new#)))
-                   (.writeBytes buf# data#)
-                   (.release msg#)))
-               (let [buf# @cumulation#]
-                 (loop []
-                   (when (.isReadable buf#)
-                     (let [out-size# (.size out#)
-                           old-input-len# (.readableBytes in#)]
-                       (.decode this# ctx# buf# out#))
-                     (when-not (.isRemoved ctx#)
-                       (cond
-                         (== out-size# (.size out#))
-                         (when-not (== out-input-len# (.readableBytes buf#))
-                           (recur))
+  [[args & body] & specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.ByteToMessageDecoder ~@interfaces] []
+       (decode ~args ~@body)
+       ~@impls)))
 
-                         (== out-input-len# (.readableBytes buf#))
-                         (throw (DecoderException. ""))
+(defmacro message-to-byte-encoder
+  [[args & body] & specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.MessageToByteEncoder ~@interfaces] []
+       (encode ~args ~@body)
+       ~@impls)))
 
-                         :else (recur))))))
-               (catch DecoderException e#
-                 (throw e#))
-               (catch Throwable e#
-                 (throw (DecoderException. e#)))
-               (finally)))
-           (.fireChannelRead ctx# msg#)))
-       (channelReadComplete [_ ctx#]
-         (.fireChannelReadComplete ctx#))
-       (channelInactive [_ ctx#])
+(defmacro message-to-message-decoder
+  [[args & body] & specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.MessageToMessageDecoder ~@interfaces] []
+       (decode ~args ~@body)
+       ~@impls)))
 
-       genesis.netty.codec.Decoder
-       (decode ~decoder)
-       
-       ~@specs)))
+(defmacro message-to-message-encoder
+  [[args & body] & specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.MessageToMessageEncoder ~@interfaces] []
+       (encode ~args ~@body)
+       ~@impls)))
+
+(defmacro byte-to-message-codec
+  [& specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.ByteToMessageCodec ~@interfaces] []
+       ~@impls)))
+
+(defmacro message-to-message-codec
+  [& specs]
+  (let [interfaces (filter symbol? specs)
+        impls (remove symbol? specs)]
+    `(proxy [io.netty.handler.codec.MessageToMessageCodec ~@interfaces] []
+       ~@impls)))

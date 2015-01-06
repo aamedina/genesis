@@ -29,26 +29,32 @@
            [io.netty.handler.ssl SslContext]
            [io.netty.handler.ssl.util SelfSignedCertificate]))
 
-(defn- default-options
+(defn- default-tcp-options
   []
-  {ChannelOption/SO_BACKLOG 100})
+  {ChannelOption/SO_BACKLOG (int 100)})
+
+(defn- default-udp-options
+  []
+  {ChannelOption/SO_BROADCAST true})
 
 (defn setup-tcp-server
   [server]
   (let [boss-group (NioEventLoopGroup.)
         worker-group (NioEventLoopGroup.)]
     (assoc server
-      :bootstrap (doto (Bootstrap.)
+      :bootstrap (doto (io.netty.bootstrap.ServerBootstrap.)
                    (.group boss-group worker-group)
-                   (.channel NioServerSocketChannel)))))
+                   (.channel NioServerSocketChannel)
+                   (.childHandler (:handler server))))))
 
 (defn setup-udp-server
   [server]
   (let [group (NioEventLoopGroup.)]
     (assoc server
-      :bootstrap (doto (Bootstrap.)
+      :bootstrap (doto (io.netty.bootstrap.Bootstrap.)
                    (.group group)
-                   (.channel NioDatagramChannel)))))
+                   (.channel NioDatagramChannel)
+                   (.handler (:handler server))))))
 
 (defn log-future-error
   [channel-future]
@@ -57,7 +63,10 @@
 
 (defn bind
   [server]
-  (let [addr (InetSocketAddress. (or (:host server) "127.0.0.1") (:port server))
+  (let [addr (if (identical? (:protocol server) :udp)
+               (InetSocketAddress. (int (:port server)))
+               (InetSocketAddress. (or (:host server) "127.0.0.1")
+                                   (int (:port server))))
         bind-future (.bind (:bootstrap server) addr)]
     (.addListener bind-future (reify ChannelFutureListener
                                 (operationComplete [_ channel-future]
@@ -70,11 +79,12 @@
   (start [this]
     (if bootstrap
       this
-      (let [server (doto (case protocol
-                           :udp (setup-udp-server this)
-                           (setup-tcp-server this))
-                     (.handler handler))]
-        (doseq [[k v] (merge (default-options) options)]
+      (let [server (if (identical? protocol :udp)
+                     (setup-udp-server this)
+                     (setup-tcp-server this))]
+        (doseq [[k v] (merge (if (identical? protocol :udp)
+                               (default-udp-options)
+                               (default-tcp-options)) options)]
           (.option (:bootstrap server) k v))
         (bind server))))
   (stop [this]
@@ -88,28 +98,6 @@
         (assoc this :bootstrap nil))
       this)))
 
-(defn netty-server
+(defn make-netty-server
   [config]
   (map->NettyServer config))
-
-(defn find-remote
-  [remote]
-  (let [m (.getMap (find-node) "remotes")]
-    (.get m remote)))
-
-(defmulti create-remote (fn [sym {:keys [provider]}] provider))
-
-(defmethod create-remote :default
-  [sym config]
-  (or (find-remote sym)      
-      (let [m (.getMap (find-node) "remotes")
-            remote (netty-server config)]
-        (.put m sym remote)
-        remote)))
-
-(defn extend-remote
-  [sym & {:as config}]
-  (let [m (.getMap (find-node) "remotes")
-        remote (.get m sym)]
-    (.put m (into remote config))
-    (.get m sym)))

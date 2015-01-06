@@ -14,10 +14,10 @@
 
 (ns genesis.commands
   (:require [genesis.core :refer :all]
-            [genesis.database :as db]))
+            [genesis.database :as db]
+            [genesis.netty.channels :refer [channel-handler]]))
 
 (defmacro defcommand
-  [command-name & options]
-  (let [{:keys [service]} (apply hash-map (butlast options))
-        f (last options)]
-    `(def ~command-name ~f)))
+  [command-name args & specs]
+  `(defn ~command-name ~args
+     (channel-handler ~@specs)))
